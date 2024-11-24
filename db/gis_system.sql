@@ -36,7 +36,7 @@ CREATE TABLE `crop_recom_range` (
   `max_range_humidity` double NOT NULL,
   `min_range_rainfall` double NOT NULL,
   `max_range_rainfall` double NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `crop_recom_range`
@@ -85,7 +85,7 @@ CREATE TABLE `forecast_weekly` (
   `nama_daerah` varchar(255) NOT NULL,
   `kabupaten_kota` varchar(255) NOT NULL,
   `provinsi` varchar(255) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `forecast_weekly`
@@ -2374,8 +2374,8 @@ INSERT INTO `forecast_weekly` (`id_forecast`, `lat`, `lon`, `waktu`, `kelembapan
 
 CREATE TABLE `forum_akses` (
   `username` varchar(255) NOT NULL,
-  `token` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  `token` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `forum_akses`
@@ -2396,12 +2396,12 @@ CREATE TABLE `forum_diskusi` (
   `id_diskusi` int NOT NULL,
   `username` varchar(255) NOT NULL,
   `tgl_dibuat` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `gambar` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
+  `gambar` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `judul` varchar(255) NOT NULL,
   `isi` longtext NOT NULL,
   `jumlah_pembaca` int NOT NULL DEFAULT '0',
   `id_kategori` int NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `forum_diskusi`
@@ -2420,7 +2420,7 @@ CREATE TABLE `kategori` (
   `id_kategori` int NOT NULL,
   `nama_kategori` varchar(255) NOT NULL,
   `gambar` varchar(255) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `kategori`
@@ -2448,7 +2448,7 @@ CREATE TABLE `predictions` (
   `temperature` double NOT NULL,
   `humidity` double NOT NULL,
   `predicted` varchar(255) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `predictions`
@@ -2574,7 +2574,7 @@ CREATE TABLE `user_in_diskusi` (
   `username` varchar(255) NOT NULL,
   `tanggal` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `isi` text NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `user_in_diskusi`
@@ -2596,7 +2596,7 @@ CREATE TABLE `user_reply_diskusi` (
   `username` varchar(255) NOT NULL,
   `tanggal` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `isi` text NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Indexes for dumped tables
