@@ -1,5 +1,3 @@
-const express = require("express");
-const router = express.Router();
 const db = require('../db/setup');
 const { hashToken, verifyToken } = require('../utils/encryption');
 const jwt = require("jsonwebtoken");
@@ -9,7 +7,7 @@ dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-router.post('/auth/register', async(req, res) => {
+const register = async(req, res) => {
     try {
         const { username, token } = req.body;
         const checkUser = "SELECT * FROM forum_akses WHERE username = ?";
@@ -35,9 +33,9 @@ router.post('/auth/register', async(req, res) => {
     } catch (error) {
         res.status(500).send(error);
     }
-});
+};
 
-router.post('/auth/login', async (req, res) => {
+const login = async (req, res) => {
     try {
         const { username, token } = req.body;
         const sql = "SELECT * FROM forum_akses WHERE username = ?";
@@ -65,6 +63,6 @@ router.post('/auth/login', async (req, res) => {
     } catch (error) {
         res.status(500).send(error);
     }
-});
+};
 
-module.exports = router;
+module.exports = { register, login };

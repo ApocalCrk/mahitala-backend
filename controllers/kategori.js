@@ -1,8 +1,6 @@
-const express = require("express");
-const router = express.Router();
 const db = require('../db/setup');
 
-router.get('/kategori/all', async(req, res) => {
+const getAllKategori = async(req, res) => {
     try {
         const sql = "SELECT * FROM kategori";
         db.query(sql, (err, result) => {
@@ -28,9 +26,9 @@ router.get('/kategori/all', async(req, res) => {
     } catch (err) {
         res.status(500).send(err);
     }
-});
+};
 
-router.get('/kategori/best', async(req, res) => {
+const getBestKategori = async(req, res) => {
     try {
         const sql = "(SELECT kategori.id_kategori, kategori.nama_kategori, kategori.gambar, COUNT(forum_diskusi.id_kategori) AS jumlah_digunakan FROM kategori JOIN forum_diskusi ON kategori.id_kategori = forum_diskusi.id_kategori GROUP BY kategori.id_kategori ORDER BY RAND() LIMIT 3) UNION ALL (SELECT kategori.id_kategori, kategori.nama_kategori, kategori.gambar, 0 AS jumlah_digunakan FROM kategori LEFT JOIN forum_diskusi ON kategori.id_kategori = forum_diskusi.id_kategori WHERE forum_diskusi.id_kategori IS NULL ORDER BY RAND() LIMIT 3) LIMIT 3";
 
@@ -49,9 +47,9 @@ router.get('/kategori/best', async(req, res) => {
     } catch (err) {
         res.status(500).send(err);
     }
-});
+};
 
-router.get('/kategori/:id', async(req, res) => {
+const getKategoriById = async(req, res) => {
     try {
         const id = req.params.id;
         const sql = `SELECT * FROM kategori WHERE id_kategori = ${id}`;
@@ -74,6 +72,10 @@ router.get('/kategori/:id', async(req, res) => {
     } catch (err) {
         res.status(500).send(err);
     }
-});
+};
 
-module.exports = router;
+module.exports = {
+    getAllKategori,
+    getBestKategori,
+    getKategoriById,
+};
