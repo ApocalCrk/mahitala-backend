@@ -5,7 +5,7 @@ const {
   getForumTerakhir,
   getAllForum,
   getForumTerbaru,
-  getForumTopDiscussion,
+  getForumTopDiskusi,
   getForumByKategori,
   getForumByKeyword,
   getForumById,
@@ -32,7 +32,7 @@ router.get("/forum/diskusi-terbaru", async (req, res) => {
 });
 
 router.get("/forum/top-diskusi", async (req, res) => {
-    const response = await getForumTopDiscussion(req, res);
+    const response = await getForumTopDiskusi(req, res);
     return response;
 });
 
