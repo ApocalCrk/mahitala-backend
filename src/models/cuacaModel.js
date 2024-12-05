@@ -1,4 +1,6 @@
 const db = require('../config/db/setup');
+const axios = require('axios');
+const calculateDistance = require('../utils/calculateDistance');
 
 const WeatherModel = {
   fetchWeatherData: (adm, defaultAdm, callback) => {
@@ -9,6 +11,43 @@ const WeatherModel = {
     axios
       .get(`${API_URL_BMKG}?adm1=${targetAdm}`)
       .then((response) => callback(null, response.data))
+      .catch((error) => callback(error, null));
+  },
+
+  getNearestLocation: (latitude, longitude, callback) => {
+    const API_URL_BMKG = process.env.API_URL_BMKG;
+    const defaultAdm = process.env.DEFAULT_ADM;
+
+    axios
+      .get(`${API_URL_BMKG}?adm1=${defaultAdm}`)
+      .then((response) => {
+        const dataCuaca = response.data.data;
+
+        let nearestLocation = null;
+        let minDistance = Infinity;
+
+        dataCuaca.forEach((location) => {
+          const locationLat = location.lokasi.lat;
+          const locationLon = location.lokasi.lon;
+
+          const distance = calculateDistance(latitude, longitude, locationLat, locationLon);
+
+          if (distance < minDistance) {
+            minDistance = distance;
+            nearestLocation = location;
+          }
+        });
+
+        if (nearestLocation) {
+          callback(null, {
+            nearestLocation: nearestLocation.lokasi,
+            weatherData: nearestLocation.cuaca,
+            distance: minDistance,
+          });
+        } else {
+          callback(new Error('No locations found'), null);
+        }
+      })
       .catch((error) => callback(error, null));
   },
 

@@ -1,4 +1,4 @@
-const WeatherModel = require('../models/cuacaModel');
+const CuacaModel = require('../models/cuacaModel');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -7,7 +7,7 @@ const getCuacaNow = (req, res) => {
   const { adm } = req.body;
   const defaultAdm = process.env.DEFAULT_ADM;
 
-  WeatherModel.fetchWeatherData(adm, defaultAdm, (err, data) => {
+  CuacaModel.fetchWeatherData(adm, defaultAdm, (err, data) => {
     if (err) {
       console.error("Error fetching weather data:", err);
       return res.status(500).json({ message: "Error: Fetching data error" });
@@ -16,11 +16,25 @@ const getCuacaNow = (req, res) => {
   });
 };
 
+
+const getNearestLocation = (req, res) => {
+  const { latitude, longitude } = req.body;
+
+  CuacaModel.getNearestLocation(latitude, longitude, (err, data) => {
+    if (err) {
+      console.error("Error fetching nearest location:", err);
+      return res.status(500).json({ message: "Error: Fetching data error" });
+    }
+    res.json(data);
+  });
+};
+
+
 const getCropPredictions = (req, res) => {
   const { provinsi, latitude, longitude } = req.body;
   const defaultProvinsi = process.env.DEFAULT_PROVINSI;
 
-  WeatherModel.fetchCropPredictions(
+  CuacaModel.fetchCropPredictions(
     { provinsi, latitude, longitude, defaultProvinsi },
     (err, result) => {
       if (err) {
@@ -35,7 +49,7 @@ const getCropPredictions = (req, res) => {
 const getCropRecommendation = (req, res) => {
   const { label } = req.body;
 
-  WeatherModel.fetchCropRecommendations(label, (err, result) => {
+  CuacaModel.fetchCropRecommendations(label, (err, result) => {
     if (err) {
       console.error("Error fetching crop recommendations:", err);
       return res.status(500).json({ message: "Error: Fetching data error" });
@@ -51,7 +65,7 @@ const getForecastWeekly = (req, res) => {
     return res.status(400).json({ message: "Invalid latitude or longitude" });
   }
 
-  WeatherModel.fetchWeeklyForecast({ latitude, longitude }, (err, result) => {
+  CuacaModel.fetchWeeklyForecast({ latitude, longitude }, (err, result) => {
     if (err) {
       console.error("Error fetching forecast data:", err);
       return res.status(500).json({ message: "Error: Fetching data error" });
@@ -62,6 +76,7 @@ const getForecastWeekly = (req, res) => {
 
 module.exports = {
   getCuacaNow,
+  getNearestLocation,
   getCropPredictions,
   getCropRecommendation,
   getForecastWeekly,

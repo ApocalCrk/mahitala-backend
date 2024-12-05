@@ -688,7 +688,7 @@ const deleteFirstReply = async (req, res) => {
           res.json({ message: "Reply deleted successfully (first reply updated)" });
         });
       } else {
-        ForumModel.checkUser(id, token, (err, result) => {
+        ForumModel.checkUserByToken(token, (err, result) => {
           if (err) return res.status(500).json({ message: "Database error", error: err });
 
           if (result.length === 0) {
