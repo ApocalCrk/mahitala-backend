@@ -118,14 +118,14 @@ const ForumModel = {
         db.query(deleteForumQuery, [id], callback);
     },
 
-    createReply: (id_diskusi, username, isi, callback) => {
-        const createReplyQuery = "INSERT INTO user_in_diskusi (id_diskusi, username, isi) VALUES (?, ?, ?)";
-        db.query(createReplyQuery, [id_diskusi, username, isi], callback);
+    createReply: (id_interact, id_diskusi, username, isi, callback) => {
+        const createReplyQuery = "INSERT INTO user_in_diskusi (id_interact, id_diskusi, username, isi) VALUES (?, ?, ?, ?)";
+        db.query(createReplyQuery, [id_interact, id_diskusi, username, isi], callback);
     },
     
-    createSubReply: (id_interact, username, isi, callback) => {
-        const createSubReplyQuery = "INSERT INTO user_reply_diskusi (id_interact, username, isi) VALUES (?, ?, ?)";
-        db.query(createSubReplyQuery, [id_interact, username, isi], callback);
+    createSubReply: (id_reply, id_interact, username, isi, callback) => {
+        const createSubReplyQuery = "INSERT INTO user_reply_diskusi (id_reply, id_interact, username, isi) VALUES (?, ?, ?, ?)";
+        db.query(createSubReplyQuery, [id_reply, id_interact, username, isi], callback);
     },
 
     checkChildReplies: (id_interact, callback) => {

@@ -638,7 +638,7 @@ const deleteForum = async (req, res) => {
 
 const createReply = async (req, res) => {
   try {
-    const { id_diskusi, id_interact, username, isi } = req.body;
+    const { id_reply, id_diskusi, id_interact, username, isi } = req.body;
     const token = req.headers.authorization.split(" ")[1];
 
     ForumModel.checkUser(username, token, (err, result) => {
@@ -651,7 +651,7 @@ const createReply = async (req, res) => {
       }
 
       if (id_interact === null) {
-        ForumModel.createReply(id_diskusi, username, isi, (err, result) => {
+        ForumModel.createReply(id_reply, id_diskusi, username, isi, (err, result) => {
           if (err) {
             return res.status(500).json({ message: "Database error", error: err });
           }
@@ -659,7 +659,7 @@ const createReply = async (req, res) => {
           res.json({ message: "Reply added successfully" });
         });
       } else {
-        ForumModel.createSubReply(id_interact, username, isi, (err, result) => {
+        ForumModel.createSubReply(id_reply, id_interact, username, isi, (err, result) => {
           if (err) {
             return res.status(500).json({ message: "Database error", error: err });
           }
