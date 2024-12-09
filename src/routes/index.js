@@ -1,6 +1,5 @@
 const express = require("express");
 
-const router = express.Router();
 const authRoute = require("./auth/route");
 const forumRoute = require("./forum/route");
 const kategoriRoute = require("./kategori/route");

@@ -9,12 +9,12 @@ const {
 } = require('../../controllers/cuaca');
 
 router.post('/cuaca/now', async(req, res) => {
-    const response = await getCuacaNow(req, res);
+    const response = getCuacaNow(req, res);
     return response;
 });
 
 router.post('/cuaca/nearest', async (req, res) => {
-    const response = await getNearestLocation(req, res);
+    const response = getNearestLocation(req, res);
     return response;
 });
 
@@ -42,12 +42,12 @@ router.post('/cuaca/nearest', async (req, res) => {
 // });
 
 router.post('/crop/predict', async (req, res) => {
-    const response = await getCropPredictions(req, res);
+    const response = getCropPredictions(req, res);
     return response;
 });
 
 router.post('/crop/recommendation', async(req, res) => {
-    const response = await getCropRecommendation(req, res);
+    const response = getCropRecommendation(req, res);
     return response;
 });
 
