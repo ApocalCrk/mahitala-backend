@@ -1,4 +1,4 @@
-# Backend: Weather Prediction System with AI-based Crop Recommendations
+# Weather Prediction System with AI-based Crop Recommendations
 
 This is the backend repository for the Weather Prediction System, which integrates AI-powered crop recommendations. The backend provides RESTful APIs to handle data management, AI model integration, and weather forecast processing.
 
