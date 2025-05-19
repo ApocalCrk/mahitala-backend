@@ -1,10 +1,10 @@
-const db = require('../config/db/setup');
-const axios = require('axios');
-const calculateDistance = require('../utils/calculateDistance');
+const db = require("../config/db/setup");
+const axios = require("axios");
+const calculateDistance = require("../utils/calculateDistance");
+const processWeeklyForecast = require("../utils/processWeeklyForecast");
 
 const WeatherModel = {
   fetchWeatherData: (adm, defaultAdm, callback) => {
-    const axios = require('axios');
     const API_URL_BMKG = process.env.API_URL_BMKG;
     const targetAdm = adm || defaultAdm;
 
@@ -30,7 +30,12 @@ const WeatherModel = {
           const locationLat = location.lokasi.lat;
           const locationLon = location.lokasi.lon;
 
-          const distance = calculateDistance(latitude, longitude, locationLat, locationLon);
+          const distance = calculateDistance(
+            latitude,
+            longitude,
+            locationLat,
+            locationLon
+          );
 
           if (distance < minDistance) {
             minDistance = distance;
@@ -45,8 +50,39 @@ const WeatherModel = {
             distance: minDistance,
           });
         } else {
-          callback(new Error('No locations found'), null);
+          callback(new Error("No locations found"), null);
         }
+      })
+      .catch((error) => callback(error, null));
+  },
+
+  getForecastData: (latitude, longitude, callback) => {
+    const API_URL_BMKG_AMANDEMEN = process.env.API_URL_BMKG_AMANDEMEN;
+
+    axios
+      .get(`${API_URL_BMKG_AMANDEMEN}?lon=${longitude}&lat=${latitude}`)
+      .then((response) => {
+        const dataCuaca = response.data.data[0];
+
+        callback(null, {
+          nearestLocation: dataCuaca.lokasi,
+          weatherData: dataCuaca.cuaca,
+        });
+      })
+      .catch((error) => callback(error, null));
+  },
+
+  fetchWeeklyForecast: (latitude, longitude, callback) => {
+    const API_URL_BMKG_AMANDEMEN = process.env.API_URL_BMKG_AMANDEMEN;
+
+    axios
+      .get(`${API_URL_BMKG_AMANDEMEN}?lon=${longitude}&lat=${latitude}`)
+      .then((response) => {
+        const data = response.data.data[0];
+
+        const weeklyForecast = processWeeklyForecast(data.cuaca);
+
+        callback(null, weeklyForecast);
       })
       .catch((error) => callback(error, null));
   },
@@ -65,7 +101,12 @@ const WeatherModel = {
         ORDER BY distance ASC 
         LIMIT 1
       `;
-      queryParams = [latitude, longitude, latitude, provinsi || defaultProvinsi];
+      queryParams = [
+        latitude,
+        longitude,
+        latitude,
+        provinsi || defaultProvinsi,
+      ];
     } else {
       sql = "SELECT * FROM predictions WHERE provinsi = ?";
       queryParams = [provinsi || defaultProvinsi];
@@ -83,24 +124,14 @@ const WeatherModel = {
     db.query(sql, params, callback);
   },
 
-  fetchWeeklyForecast: (params, callback) => {
-    const { latitude, longitude } = params;
+  updateUserLocation: (latitude, longitude, userId, callback) => {
+    const sql = `UPDATE users SET lat = ?, lon = ? WHERE user_id = ?`;
+    db.query(sql, [latitude, longitude, userId], (err, result) => {
+      if (err) return callback(err);
 
-    const sql = `
-      SELECT *, 
-        (6371 * ACOS(
-          COS(RADIANS(?)) * COS(RADIANS(lat)) * COS(RADIANS(lon) - RADIANS(?)) + 
-          SIN(RADIANS(?)) * SIN(RADIANS(lat))
-        )) AS distance 
-      FROM forecast_weekly
-      WHERE DATE(waktu) != CURDATE() AND DATE(waktu) >= CURDATE()
-      ORDER BY distance ASC, waktu ASC
-      LIMIT 7
-    `;
-    const queryParams = [latitude, longitude, latitude];
-
-    db.query(sql, queryParams, callback);
-  },
+      callback(null, result);
+    });
+  }
 };
 
 module.exports = WeatherModel;

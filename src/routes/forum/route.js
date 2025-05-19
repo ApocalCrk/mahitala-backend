@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const upload = require("../../utils/upload");
+const { upload } = require("../../utils/image_processing");
 const {
   getForumTerakhir,
   getAllForum,
@@ -14,9 +14,11 @@ const {
   createReply,
   deleteFirstReply,
   deleteSecondReply,
+  checkHargaKomoditasProdusen
 } = require("../../controllers/forum");
+const verifyToken = require("../../middleware/verifyToken");
 
-router.get("/forum/diskusi-terakhir", async (req, res) => {
+router.get("/forum/diskusi-terakhir", verifyToken, async (req, res) => {
     const response = await getForumTerakhir(req, res);
     return response;
 });
@@ -51,28 +53,33 @@ router.get("/forum/diskusi/:id", async (req, res) => {
     return response;
 });
 
-router.post("/forum/diskusi", upload.single("gambar"), async (req, res) => {
+router.post("/forum/diskusi", verifyToken, upload.single("gambar"), async (req, res) => {
     const response = await createForum(req, res);
     return response;
 });
 
-router.delete("/forum/diskusi/:id", async (req, res) => {
+router.delete("/forum/diskusi/:id", verifyToken, async (req, res) => {
     const response = await deleteForum(req, res);
     return response;
 });
 
-router.post("/forum/diskusi/reply", async (req, res) => {
+router.post("/forum/diskusi/reply", verifyToken, async (req, res) => {
     const response = await createReply(req, res);
     return response;
 });
 
-router.delete("/forum/diskusi/reply/firstIn/:id", async (req, res) => {
+router.delete("/forum/diskusi/reply/firstIn/:id", verifyToken, async (req, res) => {
     const response = await deleteFirstReply(req, res);
     return response;
 });
 
-router.delete("/forum/diskusi/reply/secIn/:id", async (req, res) => {
+router.delete("/forum/diskusi/reply/secIn/:id", verifyToken, async (req, res) => {
     const response = await deleteSecondReply(req, res);
+    return response;
+});
+
+router.get("/forum/harga-komoditas", async (req, res) => {
+    const response = await checkHargaKomoditasProdusen(req, res);
     return response;
 });
 

@@ -2369,19 +2369,19 @@ INSERT INTO `forecast_weekly` (`id_forecast`, `lat`, `lon`, `waktu`, `kelembapan
 -- --------------------------------------------------------
 
 --
--- Table structure for table `forum_akses`
+-- Table structure for table `users`
 --
 
-CREATE TABLE `forum_akses` (
+CREATE TABLE `users` (
   `username` varchar(255) NOT NULL,
   `token` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Dumping data for table `forum_akses`
+-- Dumping data for table `users`
 --
 
-INSERT INTO `forum_akses` (`username`, `token`) VALUES
+INSERT INTO `users` (`username`, `token`) VALUES
 ('test', '5e45e4e92b4edfaee04f3c4b02ddfbe7d54e81d4c057ee9714c2198d05fd324c'),
 ('test123', '59fc412e3da2e9bae59e5760c15cd401c2892a42ebd098287846aab357103c2d'),
 ('test1234', 'cdd478f3345f952d5338cb82566840c32911fc87c02ddf86dc28f8a94b98e468');
@@ -2615,9 +2615,9 @@ ALTER TABLE `forecast_weekly`
   ADD PRIMARY KEY (`id_forecast`);
 
 --
--- Indexes for table `forum_akses`
+-- Indexes for table `users`
 --
-ALTER TABLE `forum_akses`
+ALTER TABLE `users`
   ADD PRIMARY KEY (`username`),
   ADD UNIQUE KEY `username` (`username`);
 
@@ -2712,21 +2712,21 @@ ALTER TABLE `user_reply_diskusi`
 --
 ALTER TABLE `forum_diskusi`
   ADD CONSTRAINT `kategori_ibfk_1` FOREIGN KEY (`id_kategori`) REFERENCES `kategori` (`id_kategori`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `user_ibfk_1` FOREIGN KEY (`username`) REFERENCES `forum_akses` (`username`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `user_ibfk_1` FOREIGN KEY (`username`) REFERENCES `users` (`username`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Constraints for table `user_in_diskusi`
 --
 ALTER TABLE `user_in_diskusi`
   ADD CONSTRAINT `diskusi_ibfk_1` FOREIGN KEY (`id_diskusi`) REFERENCES `forum_diskusi` (`id_diskusi`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `user_ibfk_2` FOREIGN KEY (`username`) REFERENCES `forum_akses` (`username`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `user_ibfk_2` FOREIGN KEY (`username`) REFERENCES `users` (`username`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Constraints for table `user_reply_diskusi`
 --
 ALTER TABLE `user_reply_diskusi`
   ADD CONSTRAINT `interact_ibfk_1` FOREIGN KEY (`id_interact`) REFERENCES `user_in_diskusi` (`id_interact`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `user_ibfk_3` FOREIGN KEY (`username`) REFERENCES `forum_akses` (`username`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `user_ibfk_3` FOREIGN KEY (`username`) REFERENCES `users` (`username`) ON DELETE CASCADE ON UPDATE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

@@ -1,4 +1,5 @@
 const CuacaModel = require('../models/cuacaModel');
+const axios = require('axios');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -29,6 +30,26 @@ const getNearestLocation = (req, res) => {
   });
 };
 
+const getForecastData = (req, res) => {
+  const { latitude, longitude } = req.body;
+
+  CuacaModel.getForecastData(latitude, longitude, (err, data) => {
+    if (err) {
+      console.error("Error fetching forecast data:", err);
+      return res.status(500).json({ message: "Error: Fetching data error" });
+    }
+    if (req.user.user_id) {
+      const user_id = req.user.user_id;
+      CuacaModel.updateUserLocation(latitude, longitude, user_id, (err) => {
+        if (err) {
+          console.error("Error updating user location:", err);
+          return res.status(500).json({ message: "Error: Updating location error" });
+        }
+      });
+    }
+    res.json(data);
+  });
+};
 
 const getCropPredictions = (req, res) => {
   const { provinsi, latitude, longitude } = req.body;
@@ -61,22 +82,19 @@ const getCropRecommendation = (req, res) => {
 const getForecastWeekly = (req, res) => {
   const { latitude, longitude } = req.body;
 
-  if (!latitude || !longitude) {
-    return res.status(400).json({ message: "Invalid latitude or longitude" });
-  }
-
-  CuacaModel.fetchWeeklyForecast({ latitude, longitude }, (err, result) => {
+  CuacaModel.fetchWeeklyForecast(latitude, longitude, (err, data) => {
     if (err) {
-      console.error("Error fetching forecast data:", err);
+      console.error("Error fetching weekly forecast:", err);
       return res.status(500).json({ message: "Error: Fetching data error" });
     }
-    res.json(result);
+    res.json(data);
   });
 };
 
 module.exports = {
   getCuacaNow,
   getNearestLocation,
+  getForecastData,
   getCropPredictions,
   getCropRecommendation,
   getForecastWeekly,
