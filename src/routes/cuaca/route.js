@@ -6,7 +6,8 @@ const {
     getCropPredictions,
     getCropRecommendation,
     getForecastWeekly,
-    getForecastData
+    getForecastData,
+    getForecastDataNT
 } = require('../../controllers/cuaca');
 const verifyToken = require("../../middleware/verifyToken");
 
@@ -17,6 +18,11 @@ router.post('/cuaca/now', async(req, res) => {
 
 router.post('/cuaca/nearest', async (req, res) => {
     const response = getNearestLocation(req, res);
+    return response;
+});
+
+router.post('/cuaca/forecastNT', async (req, res) => {
+    const response = getForecastDataNT(req, res);
     return response;
 });
 

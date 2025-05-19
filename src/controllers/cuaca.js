@@ -30,6 +30,18 @@ const getNearestLocation = (req, res) => {
   });
 };
 
+const getForecastDataNT = (req, res) => {
+  const { latitude, longitude } = req.body;
+
+  CuacaModel.getForecastData(latitude, longitude, (err, data) => {
+    if (err) {
+      console.error("Error fetching forecast data:", err);
+      return res.status(500).json({ message: "Error: Fetching data error" });
+    }
+    res.json(data);
+  });
+}
+
 const getForecastData = (req, res) => {
   const { latitude, longitude } = req.body;
 
@@ -98,4 +110,5 @@ module.exports = {
   getCropPredictions,
   getCropRecommendation,
   getForecastWeekly,
+  getForecastDataNT
 };
