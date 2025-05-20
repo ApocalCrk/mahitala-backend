@@ -16,15 +16,20 @@ const register = (req, res) => {
       return res.status(400).json({ message: "Username telah terdaftar" });
     }
 
-    AuthModel.createUser({ username, token }, (err) => {
+    AuthModel.createUser({ username, token }, (res, err) => {
       if (err) return res.status(500).send(err);
 
-      const payload = { username, token };
+      const user = { user_id: res.insertId, username, token };
       const jwtToken = jwt.sign(payload, JWT_SECRET);
 
       res.json({
         message: "Registrasi berhasil",
         token: jwtToken,
+        user: {
+          user_id: user.user_id,
+          username: username,
+          token: token,
+        },
       });
     });
   });
