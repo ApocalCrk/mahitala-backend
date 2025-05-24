@@ -29,13 +29,9 @@ const upload = multer({
 });
 
 const unlinkImage = (imagePath, callback) => {
-
-    console.log(imagePath);
     if (!imagePath) return callback(null);
 
     const filePath = path.join(__dirname, '..', '..', 'public', imagePath.replace(/^\/+/, ''));
-
-    console.log(filePath)
 
     fs.unlink(filePath, (err) => {
         if (err && err.code !== 'ENOENT') {

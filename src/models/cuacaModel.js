@@ -72,6 +72,19 @@ const WeatherModel = {
       .catch((error) => callback(error, null));
   },
 
+  getWarningData: (callback) => {
+    const API_NOTIF = process.env.API_WARNING_BMKG;
+
+    axios
+      .get(API_NOTIF)
+      .then((response) => {
+        const data = response.data;
+
+        callback(null, data);
+      })
+      .catch((error) => callback(error, null));
+  },
+
   fetchWeeklyForecast: (latitude, longitude, callback) => {
     const API_URL_BMKG_AMANDEMEN = process.env.API_URL_BMKG_AMANDEMEN;
 

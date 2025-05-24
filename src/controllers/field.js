@@ -83,8 +83,6 @@ const deleteField = (req, res) => {
   const { id } = req.body;
   const user_id = req.user.user_id;
 
-  console.log(id, user_id);
-
   FieldModel.deleteField(id, user_id, (err) => {
     if (err) {
       console.error("Error deleting field:", err);

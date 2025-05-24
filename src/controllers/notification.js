@@ -2,6 +2,7 @@ const admin = require("../utils/firebase-admin");
 const cron = require("node-cron");
 const db = require("../config/db/setup");
 const cuacaModel = require("../models/cuacaModel");
+const fieldModel = require("../models/fieldModel");
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
@@ -10,8 +11,9 @@ const { decode } = require("html-entities");
 const issuedCachePath = path.join(__dirname, "../cache/bmkg-issued.json");
 
 const fetchBMKGIssued = async () => {
+  const API_NOTIF = process.env.API_WARNING_BMKG;
   try {
-    const response = await axios.get("https://nowcasting.bmkg.go.id/sb/yogya/Json/data.json");
+    const response = await axios.get(API_NOTIF);
     const { issued, text_warning, valid_start, valid_end } = response.data;
 
     const issuedDate = new Date(issued);
@@ -29,22 +31,40 @@ const fetchBMKGIssued = async () => {
     if (cachedIssued !== issued) {
       console.log("Data issued baru terdeteksi:", issued);
 
-      const decodedWarning = decode(text_warning || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+      const decodedWarning = decode(text_warning || "")
+        .replace(/<[^>]+>/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
 
-      const kabupatenMatch = decodedWarning.match(/Kabupaten[^.]+?(Kecamatan:[^.]+?)(?=Kabupaten|Kota|dan sekitarnya|\*|$)/g);
-      const kotaMatch = decodedWarning.match(/Kota[^.]+?(Kecamatan:[^.]+?)(?=\*|$)/g);
+      const kabupatenMatch = decodedWarning.match(
+        /Kabupaten[^.]+?(Kecamatan:[^.]+?)(?=Kabupaten|Kota|dan sekitarnya|\*|$)/g
+      );
+      const kotaMatch = decodedWarning.match(
+        /Kota[^.]+?(Kecamatan:[^.]+?)(?=\*|$)/g
+      );
 
       const lokasi = [...(kabupatenMatch || []), ...(kotaMatch || [])]
-        .map(k => k.replace(/Kecamatan:/, "").split(":")[0].trim())
+        .map((k) =>
+          k
+            .replace(/Kecamatan:/, "")
+            .split(":")[0]
+            .trim()
+        )
         .join(", ")
         .split(", ")
         .slice(0, 5)
         .join(", ");
 
-      const waktu = `${valid_start?.slice(11, 16)} - ${valid_end?.slice(11, 16)} WIB`;
+      const waktu = `${valid_start?.slice(11, 16)} - ${valid_end?.slice(
+        11,
+        16
+      )} WIB`;
 
       const title = "Peringatan Cuaca Ekstrem di Yogyakarta";
-      const body = `BMKG: Hujan lebat dan petir berpotensi terjadi di ${lokasi} pada ${issued.slice(0, 10)}, ${waktu}.`;
+      const body = `BMKG: Hujan lebat dan petir berpotensi terjadi di ${lokasi} pada ${issued.slice(
+        0,
+        10
+      )}, ${waktu}.`;
 
       const sql = "SELECT * FROM users";
       db.query(sql, (err, rows) => {
@@ -65,7 +85,6 @@ const fetchBMKGIssued = async () => {
     console.error("Gagal fetch atau proses data BMKG:", err.message);
   }
 };
-
 
 const generateData = async ({ fcmToken, title, body }) => {
   if (!fcmToken) {
@@ -212,9 +231,9 @@ const averageWeatherToday = async () => {
           const { avgTemperature, avgHumidity, mostFrequentWeatherDesc } =
             analyzeWeather(firstTimeStampData);
 
-            const title = "Informasi Cuaca Hari Ini";
-            const body = `Rata-rata suhu hari ini adalah ${avgTemperature}°C dengan kelembapan ${avgHumidity}% dan cuaca ${mostFrequentWeatherDesc}`;
-            generateData({ fcmToken: user.fcm_token, title, body });
+          const title = "Informasi Cuaca Hari Ini";
+          const body = `Rata-rata suhu hari ini adalah ${avgTemperature}°C dengan kelembapan ${avgHumidity}% dan cuaca ${mostFrequentWeatherDesc}`;
+          generateData({ fcmToken: user.fcm_token, title, body });
         }
       });
     });
@@ -223,9 +242,78 @@ const averageWeatherToday = async () => {
   });
 };
 
+const automationEstimatedCrop = async () => {
+  try {
+    const rows = await new Promise((resolve, reject) => {
+      db.query("SELECT * FROM users", (err, rows) => {
+        if (err) return reject(err);
+        resolve(rows);
+      });
+    });
+
+    if (!rows.length) {
+      console.log("No users found");
+      return;
+    }
+
+    for (const user of rows) {
+      try {
+        const fieldData = await new Promise((resolve, reject) => {
+          fieldModel.getFieldByUserID(user.user_id, (err, fieldData) => {
+            if (err) return reject(err);
+            resolve(fieldData);
+          });
+        });
+
+        if (!fieldData.length) continue;
+
+        for (const field of fieldData) {
+          const { estimasi_panen, nama_lahan } = field;
+          const currentDate = new Date();
+          const estimatedDate = new Date(estimasi_panen);
+          const diffTime = Math.abs(currentDate - estimatedDate);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          const finalDate = new Date(estimasi_panen).toLocaleDateString(
+            "id-ID",
+            {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            }
+          );
+
+          if (diffDays <= 7) {
+            const title = `Estimasi Panen ${nama_lahan}`;
+            const body = `Pemberitahuan Estimasi panen tanaman pada ${finalDate}`;
+            generateData({ fcmToken: user.fcm_token, title, body });
+          }
+        }
+      } catch (error) {
+        console.error(`Error processing user ${user.user_id}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error("Error in automationEstimatedCrop:", error);
+    throw error;
+  }
+};
+
+cron.schedule("0 0 * * *", async () => {
+  try {
+    await automationEstimatedCrop();
+    console.log(
+      "Notification sent to all users at",
+      new Date().toLocaleString()
+    );
+  } catch (error) {
+    console.error("Error in scheduled job:", error);
+  }
+});
+
 cron.schedule("0 0 * * *", () => {
-    averageWeatherToday();
-    console.log("Notification sent to all users at", new Date().toLocaleString());
+  averageWeatherToday();
+  console.log("Notification sent to all users at", new Date().toLocaleString());
 });
 
 cron.schedule("0 */1 * * *", () => {

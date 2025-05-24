@@ -63,6 +63,16 @@ const getForecastData = (req, res) => {
   });
 };
 
+const getWarningData = (req, res) => {
+  CuacaModel.getWarningData((err, data) => {
+    if (err) {
+      console.error("Error fetching warning data:", err);
+      return res.status(500).json({ message: "Error: Fetching data error" });
+    }
+    res.json(data);
+  });
+};
+
 const getCropPredictions = (req, res) => {
   const { provinsi, latitude, longitude } = req.body;
   const defaultProvinsi = process.env.DEFAULT_PROVINSI;
@@ -110,5 +120,6 @@ module.exports = {
   getCropPredictions,
   getCropRecommendation,
   getForecastWeekly,
-  getForecastDataNT
+  getForecastDataNT,
+  getWarningData
 };
