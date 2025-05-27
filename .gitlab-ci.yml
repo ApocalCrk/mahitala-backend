@@ -1,0 +1,14 @@
+stages:
+  - build
+  - deploy
+
+build-job:
+  stage: build
+  script:
+    - echo "Compiling code..."
+    - sleep 5
+
+deploy-job:
+  stage: deploy
+  script:
+    - echo "Deploying application..."
