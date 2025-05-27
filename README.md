@@ -10,15 +10,15 @@ The beta version has been thoroughly tested and aligns with the research outcome
 - [x] Weather Forecast
 - [x] AI Powered Crop Recommendation
 - [x] Forum for Farmers
+- [x] Pest Detection
+- [x] Crop Disease Detection
+- [x] Market Price Prediction
+- [x] Farm Management
 
 ## Upcoming Features
-- [ ] Pest Detection
-- [ ] Crop Disease Detection
 - [ ] Soil Health Monitoring
-- [ ] Market Price Prediction
 - [ ] Crop Yield Prediction
 - [ ] Crop Insurance
-- [ ] Farm Management
 
 ## Technologies Used
 - React
