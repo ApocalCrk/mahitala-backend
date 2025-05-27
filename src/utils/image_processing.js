@@ -1,5 +1,7 @@
 const multer = require('multer');
+const fs = require('fs');
 const path = require('path');
+
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -26,4 +28,20 @@ const upload = multer({
     }
 });
 
-module.exports = upload;
+const unlinkImage = (imagePath, callback) => {
+    if (!imagePath) return callback(null);
+
+    const filePath = path.join(__dirname, '..', '..', 'public', imagePath.replace(/^\/+/, ''));
+
+    fs.unlink(filePath, (err) => {
+        if (err && err.code !== 'ENOENT') {
+            return callback(err);
+        }
+        callback(null);
+    });
+};
+
+module.exports = {
+    upload,
+    unlinkImage
+};

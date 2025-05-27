@@ -5,16 +5,35 @@ const {
     getNearestLocation,
     getCropPredictions,
     getCropRecommendation,
-    getForecastWeekly
+    getForecastWeekly,
+    getForecastData,
+    getForecastDataNT,
+    getWarningData
 } = require('../../controllers/cuaca');
+const verifyToken = require("../../middleware/verifyToken");
 
 router.post('/cuaca/now', async(req, res) => {
-    const response = await getCuacaNow(req, res);
+    const response = getCuacaNow(req, res);
     return response;
 });
 
 router.post('/cuaca/nearest', async (req, res) => {
-    const response = await getNearestLocation(req, res);
+    const response = getNearestLocation(req, res);
+    return response;
+});
+
+router.post('/cuaca/forecastNT', async (req, res) => {
+    const response = getForecastDataNT(req, res);
+    return response;
+});
+
+router.post('/cuaca/forecast', verifyToken, async (req, res) => {
+    const response = getForecastData(req, res);
+    return response;
+});
+
+router.get('/cuaca/warning', async (req, res) => {
+    const response = getWarningData(req, res);
     return response;
 });
 
@@ -42,17 +61,17 @@ router.post('/cuaca/nearest', async (req, res) => {
 // });
 
 router.post('/crop/predict', async (req, res) => {
-    const response = await getCropPredictions(req, res);
+    const response = getCropPredictions(req, res);
     return response;
 });
 
 router.post('/crop/recommendation', async(req, res) => {
-    const response = await getCropRecommendation(req, res);
+    const response = getCropRecommendation(req, res);
     return response;
 });
 
 router.post('/cuaca/weekly', async (req, res) => {
-    const response = await getForecastWeekly(req, res);
+    const response = getForecastWeekly(req, res);
     return response;
 });
 
