@@ -1,7 +1,6 @@
 workflow:
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "push"'
-    - if: '$CI_PIPELINE_SOURCE == "trigger"'
+    - when: always
 
 stages:
   - build
