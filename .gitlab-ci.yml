@@ -12,3 +12,4 @@ deploy-job:
   stage: deploy
   script:
     - echo "Deploying application..."
+
