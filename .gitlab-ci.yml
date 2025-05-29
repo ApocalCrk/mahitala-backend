@@ -22,4 +22,4 @@ build:
     - docker push "$CI_REGISTRY/mahitala-backend:latest"
     - echo "Docker image pushed successfully."
     - echo "Running Docker container..."
-    - docker run -d --name mahitala-backend -p 8080:8080 "$CI_REGISTRY/mahitala-backend:latest"
+    - docker run -d --name mahitala-backend -p 3321:3321 "$CI_REGISTRY/mahitala-backend:latest"
