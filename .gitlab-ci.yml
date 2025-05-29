@@ -1,25 +1,41 @@
 stages:
   - deploy
 
-deploy_to_server:
-  stage: deploy
+deploy:
   image: alpine:latest
+  stage: deploy
   before_script:
-    - apk add --no-cache openssh rsync
-    - mkdir -p ~/.ssh
-    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-    - chmod 600 ~/.ssh/id_rsa
-    - echo "$REMOTE_HOST $REMOTE_PORT" > ~/.ssh/config
-    - ssh-keyscan -p $REMOTE_PORT $REMOTE_HOST >> ~/.ssh/known_hosts
-  script:
-    - rsync -avz -e "ssh -p $REMOTE_PORT" ./ $SSH_USER@$REMOTE_HOST:/home/$SSH_USER/mahitala-backend
+    # Install SSH dan rsync
+    - apk add --no-cache openssh-client rsync
 
-    - ssh -p $REMOTE_PORT $SSH_USER@$REMOTE_HOST <<EOF
-        cd /home/$SSH_USER/mahitala-backend
-        docker stop mahitala-backend || true
-        docker rm mahitala-backend || true
-        docker build -t mahitala-backend:latest .
-        docker run -d --name mahitala-backend -p 3321:3321 mahitala-backend:latest
-      EOF
+    # Setup folder ssh
+    - mkdir -p ~/.ssh
+
+    # Simpan private key dari variable ke file dan atur permission
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+
+    # Buat config SSH dengan host alias 'remote-server'
+    - |
+      echo -e "Host remote-server
+        HostName $REMOTE_HOST
+        Port $REMOTE_PORT
+        User $REMOTE_USER
+        IdentityFile ~/.ssh/id_rsa
+        StrictHostKeyChecking no
+      " > ~/.ssh/config
+
+    # Tambahkan host key ke known_hosts untuk menghindari prompt manual
+    - ssh-keyscan -p $REMOTE_PORT $REMOTE_HOST >> ~/.ssh/known_hosts
+
+  script:
+    # Pull image, stop container lama, remove container lama, dan jalankan container baru
+    - ssh remote-server "
+        docker pull $DOCKER_IMAGE &&
+        docker stop mahitala-backend || true &&
+        docker rm mahitala-backend || true &&
+        docker run -d --name mahitala-backend -p 3000:3000 $DOCKER_IMAGE
+      "
+
   only:
     - production
