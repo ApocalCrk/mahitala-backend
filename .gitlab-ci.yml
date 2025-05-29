@@ -20,7 +20,17 @@ deploy_to_server:
       EOF
     - ssh-keyscan -p $REMOTE_PORT $REMOTE_HOST >> ~/.ssh/known_hosts
   script:
-    - docker build -t mahitala-backend:latest .
-    - docker run -d --name mahitala-backend -p 3321:3321 mahitala-backend:latest
+    - echo "Deploying to remote Docker host via SSH/ngrok..."
+    - rsync -avz -e "ssh ngrok-server" ./ ngrok-server:/home/$SSH_USER/projects/gitlab/mahitala-backend
+
+    - ssh ngrok-server <<EOF
+        cd /home/$SSH_USER/projects/gitlab/mahitala-backend
+
+        docker stop mahitala-backend || true
+        docker rm mahitala-backend || true
+        docker build -t mahitala-backend .
+
+        docker run -d --name mahitala-backend -p 3000:3000 mahitala-backend
+      EOF    
   only:
     - production
