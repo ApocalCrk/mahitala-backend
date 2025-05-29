@@ -30,3 +30,4 @@ deploy_to_server:
       EOF
   only:
     - production
+    
