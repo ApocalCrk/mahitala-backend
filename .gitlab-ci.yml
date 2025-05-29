@@ -20,8 +20,10 @@ deploy_to_server:
       EOF
     - ssh-keyscan -p $REMOTE_PORT $REMOTE_HOST >> ~/.ssh/known_hosts
   script:
+    - ls
     - cd
     - pwd
+    - ls
     - cd /home/noturminesv/projects/gitlab/mahitala-backend
     - docker build -t mahitala-backend:latest .
     - docker run -d --name mahitala-backend -p 3321:3321 mahitala-backend:latest
