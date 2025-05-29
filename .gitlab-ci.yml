@@ -22,4 +22,4 @@ deploy_to_server:
         docker run -d --name mahitala-backend -p 3321:3321 mahitala-backend:latest
       EOF
   only:
-    - main
+    - production
