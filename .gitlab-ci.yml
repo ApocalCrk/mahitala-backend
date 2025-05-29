@@ -5,18 +5,23 @@ deploy_to_server:
   stage: deploy
   image: alpine:latest
   before_script:
-    - apk add --no-cache openssh rsync
-    - mkdir -p ~/.ssh
-    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-    - chmod 600 ~/.ssh/id_rsa
-    - echo "$REMOTE_HOST $REMOTE_PORT" > ~/.ssh/config
-    - ssh-keyscan -p $REMOTE_PORT $REMOTE_HOST >> ~/.ssh/known_hosts
+  - apk add --no-cache openssh rsync
+  - mkdir -p ~/.ssh
+  - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+  - chmod 600 ~/.ssh/id_rsa
+  - |
+    cat <<EOF > ~/.ssh/config
+    Host ngrok-server
+      HostName $REMOTE_HOST
+      Port $REMOTE_PORT
+      User $SSH_USER
+      IdentityFile ~/.ssh/id_rsa
+      StrictHostKeyChecking no
+    EOF
+  - ssh-keyscan -p $REMOTE_PORT $REMOTE_HOST >> ~/.ssh/known_hosts
   script:
-    # Sync folder ke server via rsync (pakai port forwarding ngrok)
-    - rsync -avz -e "ssh -p $REMOTE_PORT" ./ $SSH_USER@$REMOTE_HOST:/home/$SSH_USER/projects/gitlab/mahitala-backend
-
-    # SSH dan jalankan deploy Docker
-    - ssh -p $REMOTE_PORT $SSH_USER@$REMOTE_HOST <<EOF
+    - rsync -avz -e "ssh ngrok-server" ./ ngrok-server:/home/$SSH_USER/projects/gitlab/mahitala-backend
+    - ssh ngrok-server <<EOF
         cd /home/$SSH_USER/projects/gitlab/mahitala-backend
         docker stop mahitala-backend || true
         docker rm mahitala-backend || true
