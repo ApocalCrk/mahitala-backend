@@ -1,25 +1,25 @@
-image: docker:latest
+stages:
+  - deploy
 
-services:
-  - docker:dind
-
-variables:
-  DOCKER_HOST: tcp://docker:2375/
-  DOCKER_TLS_CERTDIR: ""
-
-before_script:
-  - apk add --no-cache curl docker-cli
-
-build:
-  stage: build
+deploy_to_server:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh rsync
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - echo "$REMOTE_HOST $REMOTE_PORT" > ~/.ssh/config
+    - ssh-keyscan -p $REMOTE_PORT $REMOTE_HOST >> ~/.ssh/known_hosts
   script:
-    - echo "Building Docker image..."
-    - docker info
-    - docker build -t mahitala-backend .
-    - echo "Docker image built successfully."
-    - echo "Pushing Docker image to registry..."
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
-    - docker push "$CI_REGISTRY/mahitala-backend:latest"
-    - echo "Docker image pushed successfully."
-    - echo "Running Docker container..."
-    - docker run -d --name mahitala-backend -p 3321:3321 "$CI_REGISTRY/mahitala-backend:latest"
+    - rsync -avz -e "ssh -p $REMOTE_PORT" ./ $SSH_USER@$REMOTE_HOST:/home/$SSH_USER/mahitala-backend
+
+    - ssh -p $REMOTE_PORT $SSH_USER@$REMOTE_HOST <<EOF
+        cd /home/$SSH_USER/mahitala-backend
+        docker stop mahitala-backend || true
+        docker rm mahitala-backend || true
+        docker build -t mahitala-backend:latest .
+        docker run -d --name mahitala-backend -p 3321:3321 mahitala-backend:latest
+      EOF
+  only:
+    - main
