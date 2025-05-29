@@ -23,6 +23,9 @@ deploy_to_server:
     - echo "Deploying to remote Docker host via SSH/ngrok..."
     - rsync -avz -e "ssh" ./ ngrok-server:/home/$SSH_USER/projects/gitlab/mahitala-backend
     - ssh ngrok-server <<EOF
+        set -e
+        echo "Running deployment commands on remote server..."
+        ls
         cd /home/$SSH_USER/projects/gitlab/mahitala-backend
         docker stop mahitala-backend || true
         docker rm mahitala-backend || true
