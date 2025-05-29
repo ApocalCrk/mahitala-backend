@@ -1,14 +1,25 @@
-stages:
-  - build
-  - deploy
+image: docker:latest
 
-build-job:
+services:
+  - docker:dind
+
+variables:
+  DOCKER_HOST: tcp://docker:2375/
+  DOCKER_TLS_CERTDIR: ""
+
+before_script:
+  - apk add --no-cache curl docker-cli
+
+build:
   stage: build
   script:
-    - echo "Compiling code..."
-    - sleep 5
-
-deploy-job:
-  stage: deploy
-  script:
-    - echo "Deploying application..."
+    - echo "Building Docker image..."
+    - docker info
+    - docker build -t mahitala-backend .
+    - echo "Docker image built successfully."
+    - echo "Pushing Docker image to registry..."
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker push "$CI_REGISTRY/mahitala-backend:latest"
+    - echo "Docker image pushed successfully."
+    - echo "Running Docker container..."
+    - docker run -d --name mahitala-backend -p 8080:8080 "$CI_REGISTRY/mahitala-backend:latest"
