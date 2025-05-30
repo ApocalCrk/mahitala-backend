@@ -1,7 +1,7 @@
 stages:
   - deploy
 
-deploy_to_server:
+deploy_to_server_via_docker:
   stage: deploy
   image: alpine:latest
   before_script:
