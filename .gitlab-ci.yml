@@ -21,12 +21,10 @@ deploy_to_server:
     - ssh-keyscan -p $REMOTE_PORT $REMOTE_HOST >> ~/.ssh/known_hosts
   script:
     - echo "Deploying to remote Docker host via SSH/ngrok..."
-    - echo $SSH_USER
-    - rsync -avz -e "ssh" ./ ngrok-server:/home/$SSH_USER/projects/gitlab/mahitala-backend
+    - rsync -avz -e "ssh" ./ ngrok-server:/home/noturminesv/projects/gitlab/mahitala-backend
     - |
       ssh ngrok-server 'bash -s' <<'ENDSSH'
-        echo "Path: /home/$SSH_USER"
-        cd /home/$SSH_USER/projects/gitlab/mahitala-backend
+        cd /home/noturminesv/projects/gitlab/mahitala-backend
         docker stop mahitala-backend || true
         docker rm mahitala-backend || true
         docker build -t mahitala-backend .
