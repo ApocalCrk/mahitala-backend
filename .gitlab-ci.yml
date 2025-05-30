@@ -25,13 +25,13 @@ deploy_to_server_via_docker:
     - ssh ngrok-server <<EOF
         set -e
         echo "Running deployment commands on remote server..."
-        ls
         cd /home/$SSH_USER/projects/gitlab/mahitala-backend
         docker stop mahitala-backend || true
         docker rm mahitala-backend || true
         docker build -t mahitala-backend .
         docker run -d --name mahitala-backend -p 3321:3321 mahitala-backend
       EOF
+    - echo "Deployment completed successfully."
 
   only:
     - production
