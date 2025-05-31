@@ -10,5 +10,4 @@ COPY . .
 
 EXPOSE 3321
 
-# Jalankan aplikasi
 CMD ["npm", "run", "dev"]
