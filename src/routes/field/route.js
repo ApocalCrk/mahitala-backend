@@ -8,8 +8,14 @@ const {
   getFieldById,
   getCropData,
   getCropById,
-  updateField
+  updateField,
+  reverseGeocode
 } = require("../../controllers/field");
+
+router.get("/reverse-geocode", async (req, res) => {
+  const response = await reverseGeocode(req, res);
+  return response;
+});
 
 router.post("/fields", verifyToken, async (req, res) => {
   const response = getFieldByUserID(req, res);

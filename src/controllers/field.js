@@ -1,5 +1,8 @@
 const FieldModel = require("../models/fieldModel");
 const dotenv = require("dotenv");
+const path = require("path");
+const fs = require("fs").promises;
+const axios = require("axios");
 
 dotenv.config();
 
@@ -53,7 +56,16 @@ const createField = (req, res) => {
 
 // Update field by id and token's username
 const updateField = (req, res) => {
-  const { id_field, nama_lahan, jenis_tanah, id_tanaman, coords, luas_lahan, tanggal_tanam, estimasi_panen } = req.body;
+  const {
+    id_field,
+    nama_lahan,
+    jenis_tanah,
+    id_tanaman,
+    coords,
+    luas_lahan,
+    tanggal_tanam,
+    estimasi_panen,
+  } = req.body;
   const user_id = req.user.user_id;
 
   FieldModel.updateField(
@@ -76,7 +88,7 @@ const updateField = (req, res) => {
       res.json({ message: "Field updated successfully" });
     }
   );
-}
+};
 
 // Delete a field by id and token's username
 const deleteField = (req, res) => {
@@ -99,7 +111,9 @@ const getFieldById = (req, res) => {
   FieldModel.getFieldById(id_field, (err, data) => {
     if (err) {
       console.error("Error fetching field by ID:", err);
-      return res.status(500).json({ message: "Error: Fetching field by ID error" });
+      return res
+        .status(500)
+        .json({ message: "Error: Fetching field by ID error" });
     }
     res.json(data);
   });
@@ -128,6 +142,67 @@ const getCropById = (req, res) => {
   });
 };
 
+const reverseGeocode = async (req, res) => {
+  const { lat, lon } = req.query;
+
+  const CACHE_DIR = path.resolve(__dirname, "../cache");
+  const CACHE_TTL = 5 * 60 * 1000;
+
+  const getCacheFileName = (lat, lon) => {
+    const safeLat = lat.replace(/\./g, "_");
+    const safeLon = lon.replace(/\./g, "_");
+    return path.join(CACHE_DIR, `${safeLat}_${safeLon}.json`);
+  };
+
+  if (!lat || !lon) {
+    return res.status(400).json({ message: "Missing lat or lon parameter" });
+  }
+
+  try {
+    await fs.mkdir(CACHE_DIR, { recursive: true });
+
+    const cacheFile = getCacheFileName(lat, lon);
+
+    try {
+      const stats = await fs.stat(cacheFile);
+      const now = Date.now();
+      const mtime = new Date(stats.mtime).getTime();
+
+      if (now - mtime < CACHE_TTL) {
+        const cachedData = await fs.readFile(cacheFile, "utf-8");
+        const data = JSON.parse(cachedData);
+        return res.json(data);
+      }
+    } catch {
+      console.log("Cache tidak ditemukan atau expired, fetch baru.");
+    }
+
+    // Pakai axios untuk request
+    const response = await axios.get(
+      `https://nominatim.openstreetmap.org/reverse`, 
+      {
+        params: {
+          lat,
+          lon,
+          format: "json",
+          "accept-language": "id"
+        },
+        headers: {
+          "User-Agent": "Mahitala"
+        }
+      }
+    );
+
+    const data = response.data;
+
+    await fs.writeFile(cacheFile, JSON.stringify(data));
+
+    return res.json(data);
+  } catch (error) {
+    return res.status(500).json({ message: "Error: " + error.message });
+  }
+};
+
 module.exports = {
   getFieldByUserID,
   createField,
@@ -135,5 +210,6 @@ module.exports = {
   deleteField,
   getFieldById,
   getCropData,
-  getCropById
+  getCropById,
+  reverseGeocode,
 };
