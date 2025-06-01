@@ -6,9 +6,6 @@ const routes = require("./src/routes");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
-app.use('/static', express.static(path.join(__dirname, 'public')))
-
 const corsOptions = {
   origin: 'https://mahitala-iota.vercel.app',
   credentials: true,
@@ -18,6 +15,10 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+
+app.use('/static', express.static(path.join(__dirname, 'public')))
+
+app.use(express.json());
 
 app.use('/api', [...routes]);
 
