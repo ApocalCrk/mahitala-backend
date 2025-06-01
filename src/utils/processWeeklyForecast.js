@@ -1,8 +1,6 @@
 const processWeeklyForecast = (dataCuaca) => {
     const allForecasts = dataCuaca.flat();
 
-    console.log("All Forecasts:", allForecasts);
-
     const uniqueDates = new Map();
     allForecasts.forEach((forecast) => {
       const forecastDate = new Date(forecast.local_datetime);
@@ -10,7 +8,7 @@ const processWeeklyForecast = (dataCuaca) => {
       const dateString = forecastDate.toISOString().split("T")[0];
 
       if (
-        forecastDate.getUTCHours() === 0
+        forecastDate.getUTCHours() === 1
       ) {
         if (!uniqueDates.has(dateString)) {
           uniqueDates.set(dateString, forecast);
