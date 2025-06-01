@@ -33,4 +33,3 @@ deploy_to_server:
     - echo "Deployment completed successfully."
   only:
     - production
-    
