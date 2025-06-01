@@ -11,13 +11,13 @@ app.use('/static', express.static(path.join(__dirname, 'public')))
 
 const corsOptions = {
   origin: 'https://mahitala-iota.vercel.app',
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  allowedHeaders: ['Content-Type', 'Authorization']
 };
 
 app.use(cors(corsOptions));
-app.use(cors());
+app.options('*', cors(corsOptions));
 
 app.use('/api', [...routes]);
 
