@@ -1,6 +1,8 @@
 const processWeeklyForecast = (dataCuaca) => {
     const allForecasts = dataCuaca.flat();
 
+    console.log("All Forecasts:", allForecasts);
+
     const uniqueDates = new Map();
     allForecasts.forEach((forecast) => {
       const forecastDate = new Date(forecast.local_datetime);

@@ -93,8 +93,6 @@ const WeatherModel = {
       .then((response) => {
         const data = response.data.data[0];
 
-        console.log("Weekly Forecast Data:", data);
-
         const weeklyForecast = processWeeklyForecast(data.cuaca);
 
         callback(null, weeklyForecast);
