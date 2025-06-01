@@ -8,7 +8,7 @@ const processWeeklyForecast = (dataCuaca) => {
       const dateString = forecastDate.toISOString().split("T")[0];
 
       if (
-        forecastDate.getUTCHours() === 7
+        forecastDate.getUTCHours() === 0
       ) {
         if (!uniqueDates.has(dateString)) {
           uniqueDates.set(dateString, forecast);
