@@ -20,15 +20,23 @@ deploy_to_server:
       EOF
     - ssh-keyscan -p $REMOTE_PORT $REMOTE_HOST >> ~/.ssh/known_hosts
   script:
-    - echo "Deploying to remote Docker host via SSH/ngrok..."
+    - echo "Deploying to production server..."
     - rsync -avz -e "ssh" ./ ngrok-server:/home/noturminesv/projects/gitlab/mahitala-backend
     - |
       ssh ngrok-server 'bash -s' <<'ENDSSH'
         cd /home/noturminesv/projects/gitlab/mahitala-backend
-        docker stop mahitala-backend || true
-        docker rm mahitala-backend || true
-        docker build -t mahitala-backend .
-        docker run -d --name mahitala-backend --add-host=host.docker.internal:host-gateway -p 3321:3321 mahitala-backend
+        # docker stop mahitala-backend || true
+        # docker rm mahitala-backend || true
+        # docker build -t mahitala-backend .
+        # docker run -d --name mahitala-backend --add-host=host.docker.internal:host-gateway -p 3321:3321 mahitala-backend
+
+        pm2 stop mahitala-backend || true
+        pm2 delete mahitala-backend || true
+        pm2 start app.js --name mahitala-backend --watch --ignore-watch="node_modules" --interpreter node
+        pm2 save
+        pm2 startup
+        pm2 logs mahitala-backend
+        pm2 status mahitala-backend
       ENDSSH
     - echo "Deployment completed successfully."
   only:
