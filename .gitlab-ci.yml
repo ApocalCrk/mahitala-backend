@@ -37,8 +37,6 @@ deploy_to_server:
         pm2 start app.js --name mahitala-backend --watch --ignore-watch="node_modules" --interpreter node
         pm2 save
         pm2 startup
-        pm2 logs mahitala-backend
-        pm2 status mahitala-backend
       ENDSSH
     - echo "Deployment completed successfully."
   only:
