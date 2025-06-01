@@ -28,7 +28,7 @@ deploy_to_server:
         docker stop mahitala-backend || true
         docker rm mahitala-backend || true
         docker build -t mahitala-backend .
-        docker run -d --name mahitala-backend -p 3321:3321 mahitala-backend
+        docker run -d --name mahitala-backend --add-host=host.docker.internal:host-gateway -p 3321:3321 mahitala-backend
       ENDSSH
     - echo "Deployment completed successfully."
   only:
