@@ -109,7 +109,6 @@ const getForecastWeekly = (req, res) => {
       console.error("Error fetching weekly forecast:", err);
       return res.status(500).json({ message: "Error: Fetching data error" });
     }
-    console.log("Weekly forecast data:", data);
     res.json(data);
   });
 };
