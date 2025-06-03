@@ -35,9 +35,14 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use("/static", express.static(path.join(__dirname, "public")));
 
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path} - Origin: ${req.get('Origin')}`);
+  next();
+});
 app.use("/api", routes);
 
 app.options('*', cors(corsOptions));
+
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
