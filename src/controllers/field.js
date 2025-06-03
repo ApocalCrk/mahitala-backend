@@ -185,7 +185,7 @@ const reverseGeocode = async (req, res) => {
           lon,
           format: "json",
           "accept-language": "id",
-          addressDetails: 1,
+          addressdetails: 1,
         },
         headers: {
           "User-Agent": "Mahitala"
