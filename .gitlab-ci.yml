@@ -47,4 +47,3 @@ deploy_to_server:
 
   only:
     - production
-    
