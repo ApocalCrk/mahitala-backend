@@ -9,12 +9,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use('/static', express.static(path.join(__dirname, 'public')))
 
-app.use(cors({
-    origin: 'https://mahitala-re.vercel.app',
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    allowedHeaders: 'Content-Type, Authorization',
-    credentials: true
-}));
+app.use(cors());
 
 app.use('/api', [...routes]);
 
