@@ -27,7 +27,7 @@ router.get('/cuaca/forecastNT', async (req, res) => {
     return response;
 });
 
-router.post('/cuaca/forecast', verifyToken, async (req, res) => {
+router.post('/cuaca/forecast', async (req, res) => {
     const response = getForecastData(req, res);
     return response;
 });
