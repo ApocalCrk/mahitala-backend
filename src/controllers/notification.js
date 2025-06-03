@@ -96,30 +96,30 @@ const generateData = async ({ fcmToken, title, body }) => {
   }
 
   try {
-    const response = admin
-      .messaging()
-      .send({
-        token: fcmToken,
-        notification: {
-          title,
-          body,
-        },
-      })
-      .then((res) => {
-        const sql =
-          "INSERT INTO notifications (id, fcm_token, message) VALUES (NULL, ?, ?)";
+    const response = await admin.messaging().send({
+      token: fcmToken,
+      notification: {
+        title,
+        body,
+      },
+    });
 
-        db.query(sql, [fcmToken, body], (err) => {
-          if (err) {
-            console.error("Error inserting notification:", err);
-          }
-        });
-      });
+    const sql = "INSERT INTO notifications (id, fcm_token, message) VALUES (NULL, ?, ?)";
+    db.query(sql, [fcmToken, body], (err) => {
+      if (err) {
+        console.error("Error inserting notification:", err);
+      }
+    });
 
     return { message: "Notification sent successfully", response };
   } catch (err) {
+    if (err.code === 'messaging/registration-token-not-registered') {
+      console.warn("FCM token is not registered, consider removing it:", fcmToken);
+      return { message: "FCM token is not registered or expired" };
+    }
+
     console.error("Error sending notification:", err);
-    return { message: "Error sending notification" };
+    return { message: "Error sending notification", error: err.message };
   }
 };
 

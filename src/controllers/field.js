@@ -177,7 +177,6 @@ const reverseGeocode = async (req, res) => {
       console.log("Cache tidak ditemukan atau expired, fetch baru.");
     }
 
-    // Pakai axios untuk request
     const response = await axios.get(
       `https://nominatim.openstreetmap.org/reverse`, 
       {
@@ -199,7 +198,7 @@ const reverseGeocode = async (req, res) => {
 
     return res.json(data);
   } catch (error) {
-    return res.status(500).json({ message: "Error: " + error.message });
+    return res.status(500).json({ message: "Error: " + error });
   }
 };
 
