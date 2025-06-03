@@ -196,9 +196,11 @@ const reverseGeocode = async (req, res) => {
     const data = response.data;
 
     await fs.writeFile(cacheFile, JSON.stringify(data));
-
+    console.log("Data baru disimpan ke cache:", cacheFile);
+    console.log("Data baru:", data);
     return res.json(data);
   } catch (error) {
+    console.log(error);
     return res.status(500).json({ message: "Error: " + error });
   }
 };
