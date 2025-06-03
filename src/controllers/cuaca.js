@@ -50,7 +50,7 @@ const getForecastData = (req, res) => {
       console.error("Error fetching forecast data:", err);
       return res.status(500).json({ message: "Error: Fetching data error" });
     }
-    if (req.user.user_id) {
+    if (req.user) {
       const user_id = req.user.user_id;
       CuacaModel.updateUserLocation(latitude, longitude, user_id, (err) => {
         if (err) {
