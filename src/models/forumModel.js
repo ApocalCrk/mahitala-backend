@@ -100,7 +100,7 @@ const ForumModel = {
   },
 
   searchForumByKeyword: (keyword, callback) => {
-    const sql = "SELECT * FROM forum_diskusi WHERE judul LIKE ?";
+    const sql = "SELECT * FROM forum_diskusi JOIN users ON forum_diskusi.user_id = users.user_id WHERE judul LIKE ?";
     db.query(sql, [keyword], callback);
   },
 
