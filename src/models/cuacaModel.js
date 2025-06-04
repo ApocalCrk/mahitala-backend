@@ -62,7 +62,6 @@ const WeatherModel = {
     axios
       .get(`${API_URL_BMKG_AMANDEMEN}?lon=${longitude}&lat=${latitude}`)
       .then((response) => {
-        console.log("Response from BMKG:", response.data);
         const dataCuaca = response.data.data[0];
 
         callback(null, {

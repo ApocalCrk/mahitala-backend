@@ -3,8 +3,13 @@ const dotenv = require("dotenv");
 const path = require("path");
 const fs = require("fs").promises;
 const axios = require("axios");
+const https = require("https");
 
 dotenv.config();
+
+const agent = new https.Agent({
+  family: 4,
+});
 
 // Get field by user ID
 const getFieldByUserID = (req, res) => {
@@ -163,6 +168,7 @@ const reverseGeocode = async (req, res) => {
     const response = await axios.get(
       `https://nominatim.openstreetmap.org/reverse`,
       {
+        httpsAgent: agent,
         params: {
           lat,
           lon,
@@ -177,7 +183,7 @@ const reverseGeocode = async (req, res) => {
     );
 
     const data = response.data;
-    
+
     await fs.writeFile(cacheFile, JSON.stringify(data), "utf-8");
 
     return res.json(data);
