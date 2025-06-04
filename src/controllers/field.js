@@ -146,8 +146,6 @@ const reverseGeocode = async (req, res) => {
   const { lat, lon } = req.query;
 
   const CACHE_DIR = path.resolve(__dirname, "../cache");
-  const CACHE_TTL = 5 * 60 * 1000;
-
   const getCacheFileName = (lat, lon) => {
     const safeLat = lat.replace(/\./g, "_");
     const safeLon = lon.replace(/\./g, "_");
@@ -158,27 +156,12 @@ const reverseGeocode = async (req, res) => {
     return res.status(400).json({ message: "Missing lat or lon parameter" });
   }
 
+  await fs.mkdir(CACHE_DIR, { recursive: true });
+  const cacheFile = getCacheFileName(lat, lon);
+
   try {
-    await fs.mkdir(CACHE_DIR, { recursive: true });
-
-    const cacheFile = getCacheFileName(lat, lon);
-
-    try {
-      const stats = await fs.stat(cacheFile);
-      const now = Date.now();
-      const mtime = new Date(stats.mtime).getTime();
-
-      if (now - mtime < CACHE_TTL) {
-        const cachedData = await fs.readFile(cacheFile, "utf-8");
-        const data = JSON.parse(cachedData);
-        return res.json(data);
-      }
-    } catch {
-      console.log("Cache tidak ditemukan atau expired, fetch baru.");
-    }
-
     const response = await axios.get(
-      `https://nominatim.openstreetmap.org/reverse`, 
+      `https://nominatim.openstreetmap.org/reverse`,
       {
         params: {
           lat,
@@ -194,13 +177,34 @@ const reverseGeocode = async (req, res) => {
     );
 
     const data = response.data;
+    
+    await fs.writeFile(cacheFile, JSON.stringify(data), "utf-8");
 
-    await fs.writeFile(cacheFile, JSON.stringify(data));
     return res.json(data);
+
   } catch (error) {
-    return res.status(500).json({ message: "Error: " + error });
+    console.error("Gagal mengambil dari API, mencoba membaca dari cache...");
+
+    try {
+      const cachedData = await fs.readFile(cacheFile, "utf-8");
+      const data = JSON.parse(cachedData);
+
+      return res.json({
+        ...data,
+        from_cache: true,
+        warning: "Data diambil dari cache karena API gagal."
+      });
+
+    } catch (cacheError) {
+      console.error("Gagal membaca cache juga:", cacheError);
+      return res.status(500).json({
+        message: "Gagal mengambil data dari API dan cache.",
+        error: error.message
+      });
+    }
   }
 };
+
 
 module.exports = {
   getFieldByUserID,
