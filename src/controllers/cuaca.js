@@ -43,7 +43,7 @@ const getForecastDataNT = (req, res) => {
 }
 
 const getForecastData = (req, res) => {
-  const { latitude, longitude } = req.body;
+  const { latitude, longitude } = req.query;
 
   CuacaModel.getForecastData(latitude, longitude, (err, data) => {
     if (err) {
