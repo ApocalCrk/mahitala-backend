@@ -33,12 +33,12 @@ deploy_to_server:
         cd /home/noturminesv/projects/gitlab/mahitala-backend
 
         echo "Installing dependencies..."
-        npm install --production
+        npm install
 
         echo "Restarting with PM2..."
         pm2 stop mahitala-backend || true
         pm2 delete mahitala-backend || true
-        pm2 start app.js --name mahitala-backend --watch --ignore-watch="node_modules" --interpreter node || true
+        pm2 start app.js --name mahitala-backend || true
         pm2 save || true
         pm2 startup || true
       ENDSSH

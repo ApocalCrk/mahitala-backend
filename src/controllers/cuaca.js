@@ -43,7 +43,7 @@ const getForecastDataNT = (req, res) => {
 }
 
 const getForecastData = (req, res) => {
-  const { latitude, longitude } = req.body;
+  const { latitude, longitude } = req.query;
 
   CuacaModel.getForecastData(latitude, longitude, (err, data) => {
     if (err) {
@@ -74,7 +74,7 @@ const getWarningData = (req, res) => {
 };
 
 const getCropPredictions = (req, res) => {
-  const { provinsi, latitude, longitude } = req.body;
+  const { provinsi, latitude, longitude } = req.query;
   const defaultProvinsi = process.env.DEFAULT_PROVINSI;
 
   CuacaModel.fetchCropPredictions(
@@ -90,7 +90,7 @@ const getCropPredictions = (req, res) => {
 };
 
 const getCropRecommendation = (req, res) => {
-  const { label } = req.body;
+  const { label } = req.query;
 
   CuacaModel.fetchCropRecommendations(label, (err, result) => {
     if (err) {
@@ -102,7 +102,7 @@ const getCropRecommendation = (req, res) => {
 };
 
 const getForecastWeekly = (req, res) => {
-  const { latitude, longitude } = req.body;
+  const { latitude, longitude } = req.query;
 
   CuacaModel.fetchWeeklyForecast(latitude, longitude, (err, data) => {
     if (err) {

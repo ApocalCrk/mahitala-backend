@@ -27,7 +27,7 @@ router.get('/cuaca/forecastNT', async (req, res) => {
     return response;
 });
 
-router.post('/cuaca/forecast', async (req, res) => {
+router.get('/cuaca/forecast', async (req, res) => {
     const response = getForecastData(req, res);
     return response;
 });
@@ -60,17 +60,17 @@ router.get('/cuaca/warning', async (req, res) => {
 //   }
 // });
 
-router.post('/crop/predict', async (req, res) => {
+router.get('/crop/predict', async (req, res) => {
     const response = getCropPredictions(req, res);
     return response;
 });
 
-router.post('/crop/recommendation', async(req, res) => {
+router.get('/crop/recommendation', async(req, res) => {
     const response = getCropRecommendation(req, res);
     return response;
 });
 
-router.post('/cuaca/weekly', async (req, res) => {
+router.get('/cuaca/weekly', async (req, res) => {
     const response = getForecastWeekly(req, res);
     return response;
 });

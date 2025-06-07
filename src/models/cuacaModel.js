@@ -69,7 +69,10 @@ const WeatherModel = {
           weatherData: dataCuaca.cuaca,
         });
       })
-      .catch((error) => callback(error, null));
+      .catch((error) => {
+        console.log(error);
+        callback(error, null);
+      });
   },
 
   getWarningData: (callback) => {

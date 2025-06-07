@@ -1,4 +1,6 @@
 const db = require("../config/db/setup");
+const fs = require("fs");
+const path = require("path");
 const axios = require("axios");
 const dotenv = require("dotenv");
 const { unlinkImage } = require("../utils/image_processing");
@@ -100,7 +102,8 @@ const ForumModel = {
   },
 
   searchForumByKeyword: (keyword, callback) => {
-    const sql = "SELECT * FROM forum_diskusi WHERE judul LIKE ?";
+    const sql =
+      "SELECT * FROM forum_diskusi JOIN users ON forum_diskusi.user_id = users.user_id WHERE judul LIKE ?";
     db.query(sql, [keyword], callback);
   },
 
@@ -126,21 +129,23 @@ const ForumModel = {
   },
 
   deleteForum: (id, callback) => {
-    const checkForumIsExist = "SELECT * FROM forum_diskusi WHERE id_diskusi = ?";
+    const checkForumIsExist =
+      "SELECT * FROM forum_diskusi WHERE id_diskusi = ?";
 
     db.query(checkForumIsExist, [id], (err, result) => {
+      if (err) return callback(err);
+
+      if (result.length === 0) {
+        return callback(new Error("Forum not found"));
+      }
+
+      unlinkImage(result[0].gambar, (err) => {
         if (err) return callback(err);
 
-        if (result.length === 0) {
-            return callback(new Error("Forum not found"));
-        }
-
-        unlinkImage(result[0].gambar, (err) => {
-            if (err) return callback(err);
-
-            const deleteForumQuery = "DELETE FROM forum_diskusi WHERE id_diskusi = ?";
-            db.query(deleteForumQuery, [id], callback);
-        });
+        const deleteForumQuery =
+          "DELETE FROM forum_diskusi WHERE id_diskusi = ?";
+        db.query(deleteForumQuery, [id], callback);
+      });
     });
   },
 
@@ -195,12 +200,25 @@ const ForumModel = {
   },
 
   checkKomoditasHargaPasar: (callback) => {
-    const API_KOMODITAS_HARGA_PASAR = process.env.API_URL_KOMODITAS_HARGA_PASAR;
+    const API_URL = process.env.API_URL_KOMODITAS_HARGA_PASAR;
+
+    const CACHE_FILE = path.join(__dirname, "../cache/komoditas_cache.json");
+    const TTL = 60 * 60 * 1000;
+
+    if (fs.existsSync(CACHE_FILE)) {
+      const raw = fs.readFileSync(CACHE_FILE, "utf-8");
+      const { timestamp, data } = JSON.parse(raw);
+
+      if (Date.now() - timestamp < TTL) {
+        console.log("Serving komoditas from file cache");
+        return callback(null, data);
+      }
+    }
+
     axios
-      .get(API_KOMODITAS_HARGA_PASAR)
+      .get(API_URL)
       .then((response) => {
-        const data = response.data.data;
-        const komoditas = data.map((item) => ({
+        const komoditas = response.data.data.map((item) => ({
           id: item.id,
           nama: item.name,
           satuan: item.satuan,
@@ -211,8 +229,15 @@ const ForumModel = {
           gap_persen: item.gap_percentage,
           gap_change: item.gap_change,
           gap_color: item.gap_color,
-          gambar: item.background
+          gambar: item.background,
         }));
+
+        const cacheData = {
+          timestamp: Date.now(),
+          data: komoditas,
+        };
+
+        fs.writeFileSync(CACHE_FILE, JSON.stringify(cacheData), "utf-8");
         callback(null, komoditas);
       })
       .catch((error) => {
