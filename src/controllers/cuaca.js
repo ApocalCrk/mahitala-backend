@@ -5,10 +5,9 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const getCuacaNow = (req, res) => {
-  const { adm } = req.body;
-  const defaultAdm = process.env.DEFAULT_ADM;
+  const { latitude, longitude } = req.query;
 
-  CuacaModel.fetchWeatherData(adm, defaultAdm, (err, data) => {
+  CuacaModel.fetchWeatherData(latitude, longitude, (err, data) => {
     if (err) {
       console.error("Error fetching weather data:", err);
       return res.status(500).json({ message: "Error: Fetching data error" });
@@ -16,7 +15,6 @@ const getCuacaNow = (req, res) => {
     res.json({ dataCuaca: data });
   });
 };
-
 
 const getNearestLocation = (req, res) => {
   const { latitude, longitude } = req.body;

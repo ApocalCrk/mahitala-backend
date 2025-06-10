@@ -10,9 +10,8 @@ const {
     getForecastDataNT,
     getWarningData
 } = require('../../controllers/cuaca');
-const verifyToken = require("../../middleware/verifyToken");
 
-router.post('/cuaca/now', async(req, res) => {
+router.get('/cuaca/now', async(req, res) => {
     const response = getCuacaNow(req, res);
     return response;
 });
@@ -36,29 +35,6 @@ router.get('/cuaca/warning', async (req, res) => {
     const response = getWarningData(req, res);
     return response;
 });
-
-// fetch prediction forecast
-// router.post('/crop/predict', async(req, res) => {
-//   const { provinsi } = req.body;
-//   try {
-//     if (!provinsi) {
-//       const sql = "SELECT * FROM predictions WHERE provinsi = ?";
-
-//       db.query(sql, [default_provinsi], (err, result) => {
-//         if (err) return res.status(500).send(err);
-//         res.json(result);
-//       });
-//     } else {
-//       const sql = "SELECT * FROM predictions WHERE provinsi = ?";
-//       db.query(sql, [provinsi], (err, result) => {
-//         if (err) return res.status(500).send(err);
-//         res.json(result);
-//       });
-//     }
-//   } catch (error) {
-//     res.status(500).json({ message: "Error: Fetching data error"});
-//   }
-// });
 
 router.get('/crop/predict', async (req, res) => {
     const response = getCropPredictions(req, res);

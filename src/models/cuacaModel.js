@@ -4,14 +4,27 @@ const calculateDistance = require("../utils/calculateDistance");
 const processWeeklyForecast = require("../utils/processWeeklyForecast");
 
 const WeatherModel = {
-  fetchWeatherData: (adm, defaultAdm, callback) => {
-    const API_URL_BMKG = process.env.API_URL_BMKG;
-    const targetAdm = adm || defaultAdm;
+  fetchWeatherData: (latitude, longitude, callback) => {
+    const API_URL_BMKG_PRS = process.env.API_URL_BMKG_PRS;
 
-    axios
-      .get(`${API_URL_BMKG}?adm1=${targetAdm}`)
-      .then((response) => callback(null, response.data))
-      .catch((error) => callback(error, null));
+    axios.get(`${API_URL_BMKG_PRS}?lat=${latitude}&lon=${longitude}`)
+      .then((response) => {
+        const dataCuaca = response.data.data.cuaca;
+        
+        if (!dataCuaca || dataCuaca.length === 0) {
+          return callback(new Error("No weather data found"), null);
+        }
+
+        const weatherData = {
+          nearestLocation: response.data.data.lokasi,
+          weatherData: dataCuaca
+        };
+        callback(null, weatherData);
+      })
+      .catch((error) => {
+        console.error("Error fetching weather data:", error);
+        callback(error, null);
+      });
   },
 
   getNearestLocation: (latitude, longitude, callback) => {
