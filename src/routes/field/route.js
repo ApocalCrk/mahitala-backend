@@ -9,11 +9,17 @@ const {
   getCropData,
   getCropById,
   updateField,
-  reverseGeocode
+  reverseGeocode,
+  radarInfo
 } = require("../../controllers/field");
 
 router.get("/reverse-geocode", async (req, res) => {
   const response = await reverseGeocode(req, res);
+  return response;
+});
+
+router.get("/radar-info", async (req, res) => {
+  const response = await radarInfo(req, res);
   return response;
 });
 

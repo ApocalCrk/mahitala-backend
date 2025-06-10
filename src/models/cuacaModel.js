@@ -1,6 +1,5 @@
 const db = require("../config/db/setup");
 const axios = require("axios");
-const calculateDistance = require("../utils/calculateDistance");
 const processWeeklyForecast = require("../utils/processWeeklyForecast");
 
 const WeatherModel = {
