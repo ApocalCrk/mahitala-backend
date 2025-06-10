@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const { 
     getCuacaNow,
-    getNearestLocation,
     getCropPredictions,
     getCropRecommendation,
     getForecastWeekly,
@@ -13,11 +12,6 @@ const {
 
 router.get('/cuaca/now', async(req, res) => {
     const response = getCuacaNow(req, res);
-    return response;
-});
-
-router.post('/cuaca/nearest', async (req, res) => {
-    const response = getNearestLocation(req, res);
     return response;
 });
 
