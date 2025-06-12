@@ -71,7 +71,7 @@ const FieldModel = {
     },
 
     getCropData: (callback) => {
-        const sql = `SELECT * FROM crop_recom_range`;
+        const sql = `SELECT * FROM kondisi_tanaman`;
         db.query(sql, (err, result) => {
             if (err) return callback(err);
             callback(null, result);
@@ -79,7 +79,7 @@ const FieldModel = {
     },
 
     getCropById: (id, callback) => {
-        const sql = `SELECT * FROM crop_recom_range WHERE id_crop = ?`;
+        const sql = `SELECT * FROM kondisi_tanaman WHERE id = ?`;
         db.query(sql, [id], (err, result) => {
             if (err) return callback(err);
             callback(null, result[0]);

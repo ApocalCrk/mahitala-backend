@@ -74,28 +74,69 @@ const WeatherModel = {
   },
 
   fetchCropPredictions: (params, callback) => {
-    const { provinsi, latitude, longitude, defaultProvinsi } = params;
+    const { latitude, longitude } = params;
     let sql;
     let queryParams;
 
     if (latitude && longitude) {
       sql = `
-        SELECT *, 
-          (6371 * ACOS(COS(RADIANS(?)) * COS(RADIANS(lat)) * COS(RADIANS(lon) - RADIANS(?)) + SIN(RADIANS(?)) * SIN(RADIANS(lat)))) AS distance 
-        FROM predictions 
-        WHERE provinsi = ? 
-        ORDER BY distance ASC 
-        LIMIT 1
+        WITH ClosestRecommendation AS (
+          SELECT 
+              r.*,
+              (6371 * ACOS(
+                  COS(RADIANS(?)) * COS(RADIANS(r.lat)) * COS(RADIANS(r.lon) - RADIANS(?)) + 
+                  SIN(RADIANS(?)) * SIN(RADIANS(r.lat))
+              )) AS distance_from_user
+          FROM 
+              rekomendasi_prakomputasi AS r
+          ORDER BY 
+              distance_from_user ASC
+          LIMIT 1
+        )
+        SELECT 
+            cr.*,
+            b.rainfall,
+            b.temperature,
+            b.humidity,
+            (6371 * ACOS(
+                COS(RADIANS(cr.lat)) * COS(RADIANS(b.lat)) * COS(RADIANS(b.lon) - RADIANS(cr.lon)) + 
+                SIN(RADIANS(cr.lat)) * SIN(RADIANS(b.lat))
+            )) AS distance_from_weather_station
+        FROM 
+            ClosestRecommendation AS cr
+        CROSS JOIN 
+            prakiraan_cuaca_bmkg AS b
+        ORDER BY 
+            distance_from_weather_station ASC
+        LIMIT 1;
       `;
+      
       queryParams = [
         latitude,
         longitude,
-        latitude,
-        provinsi || defaultProvinsi,
+        latitude
       ];
+
     } else {
-      sql = "SELECT * FROM predictions WHERE provinsi = ?";
-      queryParams = [provinsi || defaultProvinsi];
+      sql = `
+        SELECT 
+            r.*,
+            b.rainfall,
+            b.temperature,
+            b.humidity,
+            (6371 * ACOS(
+                COS(RADIANS(r.lat)) * COS(RADIANS(b.lat)) * COS(RADIANS(b.lon) - RADIANS(r.lon)) + 
+                SIN(RADIANS(r.lat)) * SIN(RADIANS(b.lat))
+            )) AS distance_from_weather_station
+        FROM 
+            rekomendasi_prakomputasi AS r
+        CROSS JOIN 
+            prakiraan_cuaca_bmkg AS b
+        ORDER BY 
+            distance_from_weather_station ASC
+        LIMIT 1;
+      `;
+      queryParams = [];
     }
 
     db.query(sql, queryParams, callback);
@@ -103,8 +144,8 @@ const WeatherModel = {
 
   fetchCropRecommendations: (label, callback) => {
     const sql = label
-      ? "SELECT * FROM crop_recom_range WHERE label = ?"
-      : "SELECT * FROM crop_recom_range";
+      ? "SELECT * FROM kondisi_tanaman WHERE label = ?"
+      : "SELECT * FROM kondisi_tanaman";
     const params = label ? [label] : [];
 
     db.query(sql, params, callback);

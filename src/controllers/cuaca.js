@@ -72,11 +72,10 @@ const getWarningData = (req, res) => {
 };
 
 const getCropPredictions = (req, res) => {
-  const { provinsi, latitude, longitude } = req.query;
-  const defaultProvinsi = process.env.DEFAULT_PROVINSI;
+  const { latitude, longitude } = req.query;
 
   CuacaModel.fetchCropPredictions(
-    { provinsi, latitude, longitude, defaultProvinsi },
+    { latitude, longitude },
     (err, result) => {
       if (err) {
         console.error("Error fetching crop predictions:", err);
