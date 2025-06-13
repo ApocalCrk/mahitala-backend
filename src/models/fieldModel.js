@@ -71,7 +71,7 @@ const FieldModel = {
     },
 
     getCropData: (callback) => {
-        const sql = `SELECT * FROM kondisi_tanaman`;
+        const sql = `SELECT * FROM kondisi_tanaman WHERE label != 'Tidak Ada'`;
         db.query(sql, (err, result) => {
             if (err) return callback(err);
             callback(null, result);
