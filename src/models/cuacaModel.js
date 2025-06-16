@@ -2,78 +2,79 @@ const db = require("../config/db/setup");
 const axios = require("axios");
 const processWeeklyForecast = require("../utils/processWeeklyForecast");
 
+const queryPromise = (sql, params) => {
+  return new Promise((resolve, reject) => {
+    db.query(sql, params, (err, results) => {
+      if (err) {
+        return reject(err);
+      }
+      resolve(results);
+    });
+  });
+};
+
 const WeatherModel = {
-  fetchWeatherData: (latitude, longitude, callback) => {
-    const API_URL_BMKG_PRS = process.env.API_URL_BMKG_PRS;
+  async fetchWeatherData(latitude, longitude) {
+    try {
+      const API_URL_BMKG_PRS = process.env.API_URL_BMKG_PRS;
+      const response = await axios.get(`${API_URL_BMKG_PRS}?lat=${latitude}&lon=${longitude}`);
+      
+      const dataCuaca = response.data.data.cuaca;
+      if (!dataCuaca || dataCuaca.length === 0) {
+        throw new Error("No weather data found");
+      }
 
-    axios.get(`${API_URL_BMKG_PRS}?lat=${latitude}&lon=${longitude}`)
-      .then((response) => {
-        const dataCuaca = response.data.data.cuaca;
-        
-        if (!dataCuaca || dataCuaca.length === 0) {
-          return callback(new Error("No weather data found"), null);
-        }
-
-        const weatherData = {
-          nearestLocation: response.data.data.lokasi,
-          weatherData: dataCuaca
-        };
-        callback(null, weatherData);
-      })
-      .catch((error) => {
-        console.error("Error fetching weather data:", error);
-        callback(error, null);
-      });
+      return {
+        nearestLocation: response.data.data.lokasi,
+        weatherData: dataCuaca,
+      };
+    } catch (error) {
+      console.error("Error fetching weather data:", error);
+      throw error; // Lemparkan error agar bisa ditangkap oleh controller
+    }
   },
 
-  getForecastData: (latitude, longitude, callback) => {
-    const API_URL_BMKG_AMANDEMEN = process.env.API_URL_BMKG_AMANDEMEN;
-
-    axios
-      .get(`${API_URL_BMKG_AMANDEMEN}?lon=${longitude}&lat=${latitude}`)
-      .then((response) => {
-        const dataCuaca = response.data.data[0];
-
-        callback(null, {
-          nearestLocation: dataCuaca.lokasi,
-          weatherData: dataCuaca.cuaca,
-        });
-      })
-      .catch((error) => {
-        console.log(error);
-        callback(error, null);
-      });
+  async getForecastData(latitude, longitude) {
+    try {
+      const API_URL_BMKG_AMANDEMEN = process.env.API_URL_BMKG_AMANDEMEN;
+      const response = await axios.get(`${API_URL_BMKG_AMANDEMEN}?lon=${longitude}&lat=${latitude}`);
+      const dataCuaca = response.data.data[0];
+      
+      return {
+        nearestLocation: dataCuaca.lokasi,
+        weatherData: dataCuaca.cuaca,
+      };
+    } catch (error) {
+      console.error("Error fetching forecast data:", error);
+      throw error;
+    }
   },
 
-  getWarningData: (callback) => {
-    const API_NOTIF = process.env.API_WARNING_BMKG;
-
-    axios
-      .get(API_NOTIF)
-      .then((response) => {
-        const data = response.data;
-
-        callback(null, data);
-      })
-      .catch((error) => callback(error, null));
+  async getWarningData() {
+    try {
+      const API_NOTIF = process.env.API_WARNING_BMKG;
+      const response = await axios.get(API_NOTIF);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching warning data:", error);
+      throw error;
+    }
   },
 
-  fetchWeeklyForecast: (latitude, longitude, callback) => {
-    const API_URL_BMKG_AMANDEMEN = process.env.API_URL_BMKG_AMANDEMEN;
-
-    axios
-      .get(`${API_URL_BMKG_AMANDEMEN}?lon=${longitude}&lat=${latitude}`)
-      .then((response) => {
-        const data = response.data.data[0];
-
-        const weeklyForecast = processWeeklyForecast(data.cuaca);
-
-        callback(null, weeklyForecast);
-      })
-      .catch((error) => callback(error, null));
+  async fetchWeeklyForecast(latitude, longitude) {
+    try {
+      const API_URL_BMKG_AMANDEMEN = process.env.API_URL_BMKG_AMANDEMEN;
+      const response = await axios.get(`${API_URL_BMKG_AMANDEMEN}?lon=${longitude}&lat=${latitude}`);
+      const data = response.data.data[0];
+      
+      return processWeeklyForecast(data.cuaca);
+    } catch (error) {
+      console.error("Error fetching weekly forecast:", error);
+      throw error;
+    }
   },
 
-  fetchCropPredictions: (params, callback) => {
+  async fetchCropPredictions(params) {
     const { latitude, longitude } = params;
     let sql;
     let queryParams;
@@ -81,84 +82,58 @@ const WeatherModel = {
     if (latitude && longitude) {
       sql = `
         WITH ClosestRecommendation AS (
-          SELECT 
-              r.*,
-              (6371 * ACOS(
-                  COS(RADIANS(?)) * COS(RADIANS(r.lat)) * COS(RADIANS(r.lon) - RADIANS(?)) + 
-                  SIN(RADIANS(?)) * SIN(RADIANS(r.lat))
-              )) AS distance_from_user
-          FROM 
-              rekomendasi_prakomputasi AS r
-          ORDER BY 
-              distance_from_user ASC
+          SELECT r.*, (6371 * ACOS(COS(RADIANS(?)) * COS(RADIANS(r.lat)) * COS(RADIANS(r.lon) - RADIANS(?)) + SIN(RADIANS(?)) * SIN(RADIANS(r.lat)))) AS distance_from_user
+          FROM rekomendasi_prakomputasi AS r
+          ORDER BY distance_from_user ASC
           LIMIT 1
         )
-        SELECT 
-            cr.*,
-            b.rainfall,
-            b.temperature,
-            b.humidity,
-            (6371 * ACOS(
-                COS(RADIANS(cr.lat)) * COS(RADIANS(b.lat)) * COS(RADIANS(b.lon) - RADIANS(cr.lon)) + 
-                SIN(RADIANS(cr.lat)) * SIN(RADIANS(b.lat))
-            )) AS distance_from_weather_station
-        FROM 
-            ClosestRecommendation AS cr
-        CROSS JOIN 
-            prakiraan_cuaca_bmkg AS b
-        ORDER BY 
-            distance_from_weather_station ASC
+        SELECT cr.*, b.rainfall, b.temperature, b.humidity, (6371 * ACOS(COS(RADIANS(cr.lat)) * COS(RADIANS(b.lat)) * COS(RADIANS(b.lon) - RADIANS(cr.lon)) + SIN(RADIANS(cr.lat)) * SIN(RADIANS(b.lat)))) AS distance_from_weather_station
+        FROM ClosestRecommendation AS cr
+        CROSS JOIN prakiraan_cuaca_bmkg AS b
+        ORDER BY distance_from_weather_station ASC
         LIMIT 1;
       `;
-      
-      queryParams = [
-        latitude,
-        longitude,
-        latitude
-      ];
-
+      queryParams = [latitude, longitude, latitude];
     } else {
       sql = `
-        SELECT 
-            r.*,
-            b.rainfall,
-            b.temperature,
-            b.humidity,
-            (6371 * ACOS(
-                COS(RADIANS(r.lat)) * COS(RADIANS(b.lat)) * COS(RADIANS(b.lon) - RADIANS(r.lon)) + 
-                SIN(RADIANS(r.lat)) * SIN(RADIANS(b.lat))
-            )) AS distance_from_weather_station
-        FROM 
-            rekomendasi_prakomputasi AS r
-        CROSS JOIN 
-            prakiraan_cuaca_bmkg AS b
-        ORDER BY 
-            distance_from_weather_station ASC
+        SELECT r.*, b.rainfall, b.temperature, b.humidity, (6371 * ACOS(COS(RADIANS(r.lat)) * COS(RADIANS(b.lat)) * COS(RADIANS(b.lon) - RADIANS(r.lon)) + SIN(RADIANS(r.lat)) * SIN(RADIANS(b.lat)))) AS distance_from_weather_station
+        FROM rekomendasi_prakomputasi AS r
+        CROSS JOIN prakiraan_cuaca_bmkg AS b
+        ORDER BY distance_from_weather_station ASC
         LIMIT 1;
       `;
       queryParams = [];
     }
 
-    db.query(sql, queryParams, callback);
+    try {
+      return await queryPromise(sql, queryParams);
+    } catch (error) {
+      console.error("Error fetching crop predictions:", error);
+      throw error;
+    }
   },
 
-  fetchCropRecommendations: (label, callback) => {
-    const sql = label
-      ? "SELECT * FROM kondisi_tanaman WHERE label = ?"
-      : "SELECT * FROM kondisi_tanaman";
+  async fetchCropRecommendations(label) {
+    const sql = label ? "SELECT * FROM kondisi_tanaman WHERE label = ?" : "SELECT * FROM kondisi_tanaman";
     const params = label ? [label] : [];
-
-    db.query(sql, params, callback);
+    
+    try {
+      return await queryPromise(sql, params);
+    } catch (error) {
+      console.error("Error fetching crop recommendations:", error);
+      throw error;
+    }
   },
 
-  updateUserLocation: (latitude, longitude, userId, callback) => {
+  async updateUserLocation(latitude, longitude, userId) {
     const sql = `UPDATE users SET lat = ?, lon = ? WHERE user_id = ?`;
-    db.query(sql, [latitude, longitude, userId], (err, result) => {
-      if (err) return callback(err);
-
-      callback(null, result);
-    });
-  }
+    try {
+      return await queryPromise(sql, [latitude, longitude, userId]);
+    } catch (error) {
+      console.error("Error updating user location:", error);
+      throw error;
+    }
+  },
 };
 
 module.exports = WeatherModel;

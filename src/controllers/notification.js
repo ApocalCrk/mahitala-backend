@@ -123,45 +123,30 @@ const generateData = async ({ fcmToken, title, body }) => {
   }
 };
 
-const weatherCondition = async () => {
-  const sql = "SELECT * FROM users";
-  db.query(sql, (err, rows) => {
-    if (err) {
-      console.error("Error fetching tokens:", err);
-      return { message: err };
+const processWeatherNotifications = async (weatherProcessingFunction) => {
+    const users = await userModel.getAllUsers();
+    if (!users.length) {
+        console.log("No users with FCM token found, skipping weather notification.");
+        return;
     }
 
-    if (!rows.length) {
-      return { message: "No users found" };
-    }
+    await Promise.all(users.map(async (user) => {
+        try {
+            const { lat, lon, fcm_token } = user;
+            if (!lat || !lon) return;
 
-    const users = rows.map((row) => row);
+            const data = await cuacaModel.getForecastData(lat, lon);
+            if (!data) return;
 
-    users.forEach((user) => {
-      const { lat, lon } = user;
-      cuacaModel.getForecastData(lat, lon, (err, data) => {
-        if (err) {
-          console.error("Error fetching weather data:", err);
-          return { message: err };
+            const notificationPayload = weatherProcessingFunction(data);
+
+            if (notificationPayload) {
+                await generateData({ fcmToken: fcm_token, ...notificationPayload });
+            }
+        } catch (error) {
+            console.error(`Error processing weather for user ${user.user_id}:`, error.message);
         }
-
-        if (data) {
-          const firstTimeStampData = data.weatherData[0][0];
-
-          if (
-            firstTimeStampData.weather >= 60 &&
-            firstTimeStampData.weather <= 97
-          ) {
-            const title = "Peringatan Cuaca";
-            const body = `Cuaca di lokasi anda ${firstTimeStampData.weather_desc} dengan suhu ${firstTimeStampData.t}°C`;
-            generateData({ fcmToken: user.fcm_token, title, body });
-          }
-        }
-      });
-    });
-
-    return { message: "Notification sent to all users" };
-  });
+    }));
 };
 
 function analyzeWeather(data) {
@@ -204,42 +189,24 @@ function analyzeWeather(data) {
   };
 }
 
-const averageWeatherToday = async () => {
-  const sql = "SELECT * FROM users";
-  db.query(sql, (err, rows) => {
-    if (err) {
-      console.error("Error fetching tokens:", err);
-      return { message: err };
+const checkForBadWeather = (data) => {
+    const firstTimeStampData = data.weatherData[0][0];
+    if (firstTimeStampData.weather >= 60 && firstTimeStampData.weather <= 97) {
+        return {
+            title: "Peringatan Cuaca",
+            body: `Cuaca di lokasi anda ${firstTimeStampData.weather_desc} dengan suhu ${firstTimeStampData.t}°C`,
+        };
     }
+    return null;
+};
 
-    if (!rows.length) {
-      return { message: "No users found" };
-    }
-
-    const users = rows.map((row) => row);
-
-    users.forEach((user) => {
-      const { lat, lon } = user;
-      cuacaModel.getForecastData(lat, lon, (err, data) => {
-        if (err) {
-          console.error("Error fetching weather data:", err);
-          return { message: err };
-        }
-
-        if (data) {
-          const firstTimeStampData = data.weatherData[0];
-          const { avgTemperature, avgHumidity, mostFrequentWeatherDesc } =
-            analyzeWeather(firstTimeStampData);
-
-          const title = "Informasi Cuaca Hari Ini";
-          const body = `Rata-rata suhu hari ini adalah ${avgTemperature}°C dengan kelembapan ${avgHumidity}% dan cuaca ${mostFrequentWeatherDesc}`;
-          generateData({ fcmToken: user.fcm_token, title, body });
-        }
-      });
-    });
-
-    return { message: "Notification sent to all users" };
-  });
+const getAverageWeather = (data) => {
+    const firstTimeStampData = data.weatherData[0];
+    const { avgTemperature, avgHumidity, mostFrequentWeatherDesc } = analyzeWeather(firstTimeStampData);
+    return {
+        title: "Informasi Cuaca Hari Ini",
+        body: `Rata-rata suhu hari ini adalah ${avgTemperature}°C dengan kelembapan ${avgHumidity}% dan cuaca ${mostFrequentWeatherDesc}`,
+    };
 };
 
 const automationEstimatedCrop = async () => {
@@ -300,29 +267,33 @@ const automationEstimatedCrop = async () => {
 };
 
 cron.schedule("0 0 * * *", async () => {
+  console.log("Running daily automation jobs at", new Date().toLocaleString());
   try {
-    await automationEstimatedCrop();
-    console.log(
-      "Notification sent to all users at",
-      new Date().toLocaleString()
-    );
+    await Promise.all([
+      automationEstimatedCrop(),
+      processWeatherNotifications(getAverageWeather)
+    ]);
+    console.log("Daily jobs completed.");
   } catch (error) {
-    console.error("Error in scheduled job:", error);
+    console.error("Error in daily scheduled jobs:", error);
   }
 });
 
-cron.schedule("0 0 * * *", () => {
-  averageWeatherToday();
-  console.log("Notification sent to all users at", new Date().toLocaleString());
+cron.schedule("0 */1 * * *", async () => {
+    console.log("Checking for bad weather conditions at", new Date().toLocaleString());
+    try {
+        await processWeatherNotifications(checkForBadWeather);
+    } catch (error) {
+        console.error("Error in hourly weather check:", error);
+    }
 });
 
-cron.schedule("0 */1 * * *", () => {
-  weatherCondition();
-  console.log("Notification sent to all users at", new Date().toLocaleString());
-});
-
-cron.schedule("*/10 * * * *", () => {
-  fetchBMKGIssued();
+cron.schedule("*/10 * * * *", async () => {
+    try {
+        await fetchBMKGIssued();
+    } catch (error) {
+        console.error("Error fetching BMKG data:", error);
+    }
 });
 
 const registerToken = async (req, res) => {
@@ -334,7 +305,7 @@ const registerToken = async (req, res) => {
   }
 
   try {
-    await db.query("UPDATE users SET fcm_token = ? WHERE user_id = ?", [
+    db.query("UPDATE users SET fcm_token = ? WHERE user_id = ?", [
       fcmToken,
       userId,
     ]);
@@ -345,4 +316,4 @@ const registerToken = async (req, res) => {
   }
 };
 
-module.exports = { averageWeatherToday, registerToken };
+module.exports = { fetchBMKGIssued, registerToken };

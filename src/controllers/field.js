@@ -7,145 +7,99 @@ const https = require("https");
 
 dotenv.config();
 
-const agent = new https.Agent({
-  family: 4,
-});
+const agent = new https.Agent({ family: 4 });
 
 // Get field by user ID
-const getFieldByUserID = (req, res) => {
-  const user_id = req.user.user_id;
-
-  FieldModel.getFieldByUserID(user_id, (err, data) => {
-    if (err) {
-      console.error("Error fetching field data:", err);
-      return res.status(500).json({ message: "Error: Fetching data error" });
-    }
+const getFieldByUserID = async (req, res) => {
+  try {
+    const user_id = req.user.user_id;
+    const data = await FieldModel.getFieldByUserID(user_id);
     res.json(data);
-  });
+  } catch (error) {
+    console.error("Error fetching field data:", error);
+    res.status(500).json({ message: "Error: Fetching data error" });
+  }
 };
 
 // Create new field
-const createField = (req, res) => {
-  const {
-    nama_lahan,
-    jenis_tanah,
-    id_tanaman,
-    coords,
-    luas_lahan,
-    tanggal_tanam,
-    estimasi_panen,
-  } = req.body;
-
-  const user_id = req.user.user_id;
-
-  FieldModel.createField(
-    {
-      user_id,
-      nama_lahan,
-      jenis_tanah,
-      id_tanaman,
-      coords,
-      luas_lahan,
-      tanggal_tanam,
-      estimasi_panen,
-    },
-    (err) => {
-      if (err) {
-        console.error("Error creating field:", err);
-        return res.status(500).json({ message: "Error: Creating field error" });
-      }
-      res.json({ message: "Field created successfully" });
-    }
-  );
+const createField = async (req, res) => {
+  try {
+    const data = { ...req.body, user_id: req.user.user_id };
+    await FieldModel.createField(data);
+    res.status(201).json({ message: "Field created successfully" });
+  } catch (error) {
+    console.error("Error creating field:", error);
+    res.status(500).json({ message: "Error: Creating field error" });
+  }
 };
 
-// Update field by id and token's username
-const updateField = (req, res) => {
-  const {
-    id_field,
-    nama_lahan,
-    jenis_tanah,
-    id_tanaman,
-    coords,
-    luas_lahan,
-    tanggal_tanam,
-    estimasi_panen,
-  } = req.body;
-  const user_id = req.user.user_id;
-
-  FieldModel.updateField(
-    id_field,
-    {
-      user_id,
-      nama_lahan,
-      jenis_tanah,
-      id_tanaman,
-      coords,
-      luas_lahan,
-      tanggal_tanam,
-      estimasi_panen,
-    },
-    (err) => {
-      if (err) {
-        console.error("Error updating field:", err);
-        return res.status(500).json({ message: "Error: Updating field error" });
-      }
-      res.json({ message: "Field updated successfully" });
-    }
-  );
+// Update field
+const updateField = async (req, res) => {
+  try {
+    const { id_field, ...dataToUpdate } = req.body;
+    await FieldModel.updateField(id_field, dataToUpdate);
+    res.json({ message: "Field updated successfully" });
+  } catch (error) {
+    console.error("Error updating field:", error);
+    res.status(500).json({ message: "Error: Updating field error" });
+  }
 };
 
-// Delete a field by id and token's username
-const deleteField = (req, res) => {
-  const { id } = req.body;
-  const user_id = req.user.user_id;
-
-  FieldModel.deleteField(id, user_id, (err) => {
-    if (err) {
-      console.error("Error deleting field:", err);
-      return res.status(500).json({ message: "Error: Deleting field error" });
-    }
+// Delete a field
+const deleteField = async (req, res) => {
+  try {
+    const { id } = req.body;
+    const user_id = req.user.user_id;
+    await FieldModel.deleteField(id, user_id);
     res.json({ message: "Field deleted successfully" });
-  });
+  } catch (error) {
+    console.error("Error deleting field:", error);
+    res.status(500).json({ message: "Error: Deleting field error" });
+  }
 };
 
-// Get field by ID (no auth required for this example)
-const getFieldById = (req, res) => {
-  const { id_field } = req.params;
-
-  FieldModel.getFieldById(id_field, (err, data) => {
-    if (err) {
-      console.error("Error fetching field by ID:", err);
-      return res
-        .status(500)
-        .json({ message: "Error: Fetching field by ID error" });
+// Get field by ID
+const getFieldById = async (req, res) => {
+  try {
+    const { id_field } = req.params;
+    const data = await FieldModel.getFieldById(id_field);
+    if (!data) {
+      return res.status(404).json({ message: "Field not found" });
     }
     res.json(data);
-  });
+  } catch (error) {
+    console.error("Error fetching field by ID:", error);
+    res.status(500).json({ message: "Error: Fetching field by ID error" });
+  }
 };
 
 // Get all crop data
-const getCropData = (req, res) => {
-  FieldModel.getCropData((err, data) => {
-    if (err) {
-      console.error("Error fetching crop data:", err);
-      return res.status(500).json({ message: "Error: Fetching data error" });
-    }
+const getCropData = async (req, res) => {
+  try {
+    const data = await FieldModel.getCropData();
     res.json(data);
-  });
+  } catch (error) {
+    console.error("Error fetching crop data:", error);
+    res.status(500).json({ message: "Error: Fetching data error" });
+  }
 };
 
 // Get crop by ID
-const getCropById = (req, res) => {
-  const { id_tanaman } = req.params;
-  FieldModel.getCropById(id_tanaman, (err, data) => {
-    if (err) {
-      console.error("Error fetching crop by ID:", err);
-      return res.status(500).json({ message: "Error: Fetching data error" });
+const getCropById = async (req, res) => {
+  try {
+    const { id_tanaman } = req.params;
+    const data = await FieldModel.getCropById(id_tanaman);
+    if (!data) {
+      return res.status(404).json({ message: "Crop not found" });
     }
     res.json(data);
-  });
+  } catch (error) {
+    console.error("Error fetching crop by ID:", error);
+    res.status(500).json({ message: "Error: Fetching data error" });
+  }
 };
+
+// --- Fungsi yang sudah async tidak perlu diubah ---
 
 const reverseGeocode = async (req, res) => {
   const { lat, lon } = req.query;
@@ -169,38 +123,24 @@ const reverseGeocode = async (req, res) => {
       `https://nominatim.openstreetmap.org/reverse`,
       {
         httpsAgent: agent,
-        params: {
-          lat,
-          lon,
-          format: "json",
-          "accept-language": "id"
-        },
-        headers: {
-          "User-Agent": "Mahitala",
-          "Content-Type": "application/json"
-        }
+        params: { lat, lon, format: "json", "accept-language": "id" },
+        headers: { "User-Agent": "Mahitala", "Content-Type": "application/json" }
       }
     );
-
     const data = response.data;
-
     await fs.writeFile(cacheFile, JSON.stringify(data), "utf-8");
-
     return res.json(data);
 
   } catch (error) {
     console.error("Gagal mengambil dari API, mencoba membaca dari cache...");
-
     try {
       const cachedData = await fs.readFile(cacheFile, "utf-8");
       const data = JSON.parse(cachedData);
-
       return res.json({
         ...data,
         from_cache: true,
         warning: "Data diambil dari cache karena API gagal."
       });
-
     } catch (cacheError) {
       console.error("Gagal membaca cache juga:", cacheError);
       return res.status(500).json({
@@ -212,24 +152,19 @@ const reverseGeocode = async (req, res) => {
 };
 
 const radarInfo = async (req, res) => {
-  const bmkgApiUrl = process.env.API_RADAR; 
-
+  const bmkgApiUrl = process.env.API_RADAR;
   if (!bmkgApiUrl) {
     return res.status(500).json({ message: "URL API BMKG tidak terkonfigurasi di .env" });
   }
-
   const headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
     'Referer': 'https://signature.bmkg.go.id/'
   };
-
   try {
     const response = await axios.get(bmkgApiUrl, { headers });
     res.status(200).json(response.data);
-
   } catch (error) {
     console.error("Error saat mengambil data radar dari BMKG:", error.message);
-
     if (error.response) {
       res.status(error.response.status).json({ 
         message: "Server BMKG memberikan respons error", 
@@ -244,15 +179,7 @@ const radarInfo = async (req, res) => {
   }
 };
 
-
 module.exports = {
-  getFieldByUserID,
-  createField,
-  updateField,
-  deleteField,
-  getFieldById,
-  getCropData,
-  getCropById,
-  reverseGeocode,
-  radarInfo
+  getFieldByUserID, createField, updateField, deleteField,
+  getFieldById, getCropData, getCropById, reverseGeocode, radarInfo
 };

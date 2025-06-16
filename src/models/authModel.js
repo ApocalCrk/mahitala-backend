@@ -1,22 +1,36 @@
 const db = require('../config/db/setup');
 const { hashToken, verifyToken } = require('../utils/encryption');
 
+const queryPromise = (sql, params) => {
+  return new Promise((resolve, reject) => {
+    db.query(sql, params, (err, results) => {
+      if (err) {
+        return reject(err);
+      }
+      resolve(results);
+    });
+  });
+};
+
 const AuthModel = {
-  isUsernameTaken: (username, callback) => {
-    db.query('SELECT * FROM users WHERE username = ?', [username], callback);
+  async isUsernameTaken(username) {
+    const results = await queryPromise('SELECT * FROM users WHERE username = ?', [username]);
+    return results;
   },
 
-  createUser: (data, callback) => {
+  async createUser(data) {
     const { username, token } = data;
-    const hashedToken = hashToken(token);
-    db.query('INSERT INTO users (username, token) VALUES (?, ?)', [username, hashedToken], callback);
+    const hashedToken = hashToken(token); 
+    const results = await queryPromise('INSERT INTO users (username, token) VALUES (?, ?)', [username, hashedToken]);
+    return results;
   },
 
-  getUserByUsername: (username, callback) => {
-    db.query('SELECT * FROM users WHERE username = ?', [username], callback);
+  async getUserByUsername(username) {
+    const results = await queryPromise('SELECT * FROM users WHERE username = ?', [username]);
+    return results;
   },
   
-  isTokenValid: (token, storedToken) => {
+  isTokenValid(token, storedToken) {
     return verifyToken(token, storedToken);
   },
 };

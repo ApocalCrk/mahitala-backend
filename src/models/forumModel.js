@@ -1,5 +1,5 @@
 const db = require("../config/db/setup");
-const fs = require("fs");
+const fs = require("fs").promises; // Menggunakan fs.promises untuk async/await
 const path = require("path");
 const axios = require("axios");
 const dotenv = require("dotenv");
@@ -7,243 +7,187 @@ const { unlinkImage } = require("../utils/image_processing");
 
 dotenv.config();
 
-const ForumModel = {
-  checkUserByID: (user_id, callback) => {
-    db.query("SELECT * FROM users WHERE user_id = ?", [user_id], callback);
-  },
-
-  checkUser: (username, user_id, callback) => {
-    const checkUserQuery =
-      "SELECT * FROM users WHERE username = ? AND user_id = ?";
-    db.query(checkUserQuery, [username, user_id], callback);
-  },
-
-  getForumDiskusiByID: (user_id, callback) => {
-    const sql = `
-            SELECT * 
-            FROM forum_diskusi 
-            JOIN users ON forum_diskusi.user_id = users.user_id 
-            JOIN kategori ON forum_diskusi.id_kategori = kategori.id_kategori 
-            WHERE users.user_id = ? 
-            ORDER BY tgl_dibuat DESC
-        `;
-    db.query(sql, [user_id], callback);
-  },
-
-  getMainReplies: (idDiskusi, callback) => {
-    const mainReply = `
-            SELECT * 
-            FROM user_in_diskusi 
-            JOIN users ON user_in_diskusi.user_id = users.user_id 
-            WHERE id_diskusi = ? 
-            ORDER BY tanggal ASC
-        `;
-    db.query(mainReply, [idDiskusi], callback);
-  },
-
-  getSubReplies: (idInteract, callback) => {
-    const subReply = `
-            SELECT * 
-            FROM user_reply_diskusi 
-            JOIN users ON user_reply_diskusi.user_id = users.user_id 
-            WHERE id_interact = ? 
-            ORDER BY tanggal ASC
-        `;
-    db.query(subReply, [idInteract], callback);
-  },
-
-  updateViewCount: (idDiskusi, callback) => {
-    const updateJumlahPembaca = `
-            UPDATE forum_diskusi 
-            SET jumlah_pembaca = jumlah_pembaca + 1 
-            WHERE id_diskusi = ?
-        `;
-    db.query(updateJumlahPembaca, [idDiskusi], callback);
-  },
-
-  getAllForumDiskusi: (callback) => {
-    const sql = `
-            SELECT * 
-            FROM forum_diskusi 
-            JOIN users ON forum_diskusi.user_id = users.user_id 
-            JOIN kategori ON forum_diskusi.id_kategori = kategori.id_kategori
-        `;
-    db.query(sql, callback);
-  },
-
-  getForumTerbaru: (callback) => {
-    const sql = `
-            SELECT * 
-            FROM forum_diskusi 
-            JOIN kategori ON forum_diskusi.id_kategori = kategori.id_kategori 
-            ORDER BY tgl_dibuat DESC
-        `;
-    db.query(sql, callback);
-  },
-
-  getForumTopDiskusi: (callback) => {
-    const sql = `
-            SELECT * 
-            FROM forum_diskusi 
-            JOIN kategori ON forum_diskusi.id_kategori = kategori.id_kategori
-            join users ON forum_diskusi.user_id = users.user_id
-        `;
-    db.query(sql, callback);
-  },
-
-  getForumByKategori: (idKategori, callback) => {
-    const sql = `
-            SELECT * 
-            FROM forum_diskusi 
-            JOIN kategori ON forum_diskusi.id_kategori = kategori.id_kategori 
-            WHERE forum_diskusi.id_kategori = ?
-        `;
-    db.query(sql, [idKategori], callback);
-  },
-
-  searchForumByKeyword: (keyword, callback) => {
-    const sql =
-      "SELECT * FROM forum_diskusi JOIN users ON forum_diskusi.user_id = users.user_id WHERE judul LIKE ?";
-    db.query(sql, [keyword], callback);
-  },
-
-  getForumById: (idDiskusi, callback) => {
-    const sql = `
-            SELECT *, forum_diskusi.gambar AS gambar
-            FROM forum_diskusi 
-            JOIN users ON forum_diskusi.user_id = users.user_id 
-            JOIN kategori ON forum_diskusi.id_kategori = kategori.id_kategori 
-            WHERE id_diskusi = ?
-        `;
-    db.query(sql, [idDiskusi], callback);
-  },
-
-  createForum: (user_id, gambar, judul, isi, id_kategori, callback) => {
-    const createForumQuery =
-      "INSERT INTO forum_diskusi (user_id, gambar, judul, isi, id_kategori) VALUES (?, ?, ?, ?, ?)";
-    db.query(
-      createForumQuery,
-      [user_id, gambar, judul, isi, id_kategori],
-      callback
-    );
-  },
-
-  deleteForum: (id, callback) => {
-    const checkForumIsExist =
-      "SELECT * FROM forum_diskusi WHERE id_diskusi = ?";
-
-    db.query(checkForumIsExist, [id], (err, result) => {
-      if (err) return callback(err);
-
-      if (result.length === 0) {
-        return callback(new Error("Forum not found"));
-      }
-
-      unlinkImage(result[0].gambar, (err) => {
-        if (err) return callback(err);
-
-        const deleteForumQuery =
-          "DELETE FROM forum_diskusi WHERE id_diskusi = ?";
-        db.query(deleteForumQuery, [id], callback);
-      });
+// Helper untuk mengubah db.query menjadi Promise-based
+const queryPromise = (sql, params) => {
+  return new Promise((resolve, reject) => {
+    db.query(sql, params, (err, results) => {
+      if (err) return reject(err);
+      resolve(results);
     });
+  });
+};
+
+// Helper untuk mengubah unlinkImage menjadi Promise-based
+const unlinkImagePromise = (filePath) => {
+  return new Promise((resolve, reject) => {
+    if (!filePath) return resolve(); // Jika tidak ada gambar, langsung resolve
+    unlinkImage(filePath, (err) => {
+      if (err) return reject(err);
+      resolve();
+    });
+  });
+};
+
+
+const ForumModel = {
+  async checkUserByID(user_id) {
+    return await queryPromise("SELECT * FROM users WHERE user_id = ?", [user_id]);
   },
 
-  createReply: (id_interact, id_diskusi, user_id, isi, callback) => {
-    const createReplyQuery =
-      "INSERT INTO user_in_diskusi (id_interact, id_diskusi, user_id, isi) VALUES (?, ?, ?, ?)";
-    db.query(
-      createReplyQuery,
-      [id_interact, id_diskusi, user_id, isi],
-      callback
-    );
+  async checkUser(username, user_id) {
+    const sql = "SELECT * FROM users WHERE username = ? AND user_id = ?";
+    return await queryPromise(sql, [username, user_id]);
   },
 
-  createSubReply: (id_reply, id_interact, user_id, isi, callback) => {
-    const createSubReplyQuery =
-      "INSERT INTO user_reply_diskusi (id_reply, id_interact, user_id, isi) VALUES (?, ?, ?, ?)";
-    db.query(
-      createSubReplyQuery,
-      [id_reply, id_interact, user_id, isi],
-      callback
-    );
+  async getForumDiskusiByID(user_id) {
+    const sql = `SELECT * FROM forum_diskusi 
+                 JOIN users ON forum_diskusi.user_id = users.user_id 
+                 JOIN kategori ON forum_diskusi.id_kategori = kategori.id_kategori 
+                 WHERE users.user_id = ? ORDER BY tgl_dibuat DESC`;
+    return await queryPromise(sql, [user_id]);
   },
 
-  checkChildReplies: (id_interact, callback) => {
-    const checkChildQuery =
-      "SELECT * FROM user_reply_diskusi WHERE id_interact = ?";
-    db.query(checkChildQuery, [id_interact], callback);
+  async getMainReplies(idDiskusi) {
+    const sql = `SELECT * FROM user_in_diskusi 
+                 JOIN users ON user_in_diskusi.user_id = users.user_id 
+                 WHERE id_diskusi = ? ORDER BY tanggal ASC`;
+    return await queryPromise(sql, [idDiskusi]);
   },
 
-  updateFirstReplyToDeleted: (id_interact, callback) => {
-    const updateReplyQuery =
-      "UPDATE user_in_diskusi SET isi = '[deleted]' WHERE id_interact = ?";
-    db.query(updateReplyQuery, [id_interact], callback);
+  async getSubReplies(idInteract) {
+    const sql = `SELECT * FROM user_reply_diskusi 
+                 JOIN users ON user_reply_diskusi.user_id = users.user_id 
+                 WHERE id_interact = ? ORDER BY tanggal ASC`;
+    return await queryPromise(sql, [idInteract]);
   },
 
-  deleteFirstReply: (id_interact, callback) => {
-    const deleteReplyQuery =
-      "DELETE FROM user_in_diskusi WHERE id_interact = ?";
-    db.query(deleteReplyQuery, [id_interact], callback);
+  async updateViewCount(idDiskusi) {
+    const sql = "UPDATE forum_diskusi SET jumlah_pembaca = jumlah_pembaca + 1 WHERE id_diskusi = ?";
+    return await queryPromise(sql, [idDiskusi]);
   },
 
-  checkUserForSecondReply: (id_reply, user_id, callback) => {
-    const checkUserQuery =
-      "SELECT * FROM user_reply_diskusi JOIN users ON user_reply_diskusi.user_id = users.user_id WHERE id_reply = ? AND user_id = ?";
-    db.query(checkUserQuery, [id_reply, user_id], callback);
+  async getAllForumDiskusi() {
+    const sql = `SELECT * FROM forum_diskusi 
+                 JOIN users ON forum_diskusi.user_id = users.user_id 
+                 JOIN kategori ON forum_diskusi.id_kategori = kategori.id_kategori`;
+    return await queryPromise(sql);
   },
 
-  deleteSecondReply: (id_reply, callback) => {
-    const deleteReplyQuery =
-      "DELETE FROM user_reply_diskusi WHERE id_reply = ?";
-    db.query(deleteReplyQuery, [id_reply], callback);
+  async getForumTerbaru() {
+    const sql = `SELECT * FROM forum_diskusi 
+                 JOIN kategori ON forum_diskusi.id_kategori = kategori.id_kategori 
+                 ORDER BY tgl_dibuat DESC`;
+    return await queryPromise(sql);
   },
 
-  checkKomoditasHargaPasar: (callback) => {
-    const API_URL = process.env.API_URL_KOMODITAS_HARGA_PASAR;
+  async getForumTopDiskusi() {
+    const sql = `SELECT * FROM forum_diskusi 
+                 JOIN kategori ON forum_diskusi.id_kategori = kategori.id_kategori
+                 JOIN users ON forum_diskusi.user_id = users.user_id`;
+    return await queryPromise(sql);
+  },
 
-    const CACHE_FILE = path.join(__dirname, "../cache/komoditas_cache.json");
-    const TTL = 60 * 60 * 1000;
+  async getForumByKategori(idKategori) {
+    const sql = `SELECT * FROM forum_diskusi 
+                 JOIN kategori ON forum_diskusi.id_kategori = kategori.id_kategori 
+                 WHERE forum_diskusi.id_kategori = ?`;
+    return await queryPromise(sql, [idKategori]);
+  },
 
-    if (fs.existsSync(CACHE_FILE)) {
-      const raw = fs.readFileSync(CACHE_FILE, "utf-8");
-      const { timestamp, data } = JSON.parse(raw);
+  async searchForumByKeyword(keyword) {
+    const sql = "SELECT * FROM forum_diskusi JOIN users ON forum_diskusi.user_id = users.user_id WHERE judul LIKE ?";
+    return await queryPromise(sql, [`%${keyword}%`]);
+  },
 
-      if (Date.now() - timestamp < TTL) {
-        console.log("Serving komoditas from file cache");
-        return callback(null, data);
-      }
+  async getForumById(idDiskusi) {
+    const sql = `SELECT *, forum_diskusi.gambar AS gambar FROM forum_diskusi 
+                 JOIN users ON forum_diskusi.user_id = users.user_id 
+                 JOIN kategori ON forum_diskusi.id_kategori = kategori.id_kategori 
+                 WHERE id_diskusi = ?`;
+    return await queryPromise(sql, [idDiskusi]);
+  },
+
+  async createForum(user_id, gambar, judul, isi, id_kategori) {
+    const sql = "INSERT INTO forum_diskusi (user_id, gambar, judul, isi, id_kategori) VALUES (?, ?, ?, ?, ?)";
+    return await queryPromise(sql, [user_id, gambar, judul, isi, id_kategori]);
+  },
+
+  async deleteForum(id) {
+    const checkSql = "SELECT gambar FROM forum_diskusi WHERE id_diskusi = ?";
+    const forum = await queryPromise(checkSql, [id]);
+
+    if (forum.length === 0) {
+      throw new Error("Forum not found");
     }
 
-    axios
-      .get(API_URL)
-      .then((response) => {
+    await unlinkImagePromise(forum[0].gambar);
+
+    const deleteSql = "DELETE FROM forum_diskusi WHERE id_diskusi = ?";
+    return await queryPromise(deleteSql, [id]);
+  },
+
+  async createReply(id_interact, id_diskusi, user_id, isi) {
+    const sql = "INSERT INTO user_in_diskusi (id_interact, id_diskusi, user_id, isi) VALUES (?, ?, ?, ?)";
+    return await queryPromise(sql, [id_interact, id_diskusi, user_id, isi]);
+  },
+
+  async createSubReply(id_reply, id_interact, user_id, isi) {
+    const sql = "INSERT INTO user_reply_diskusi (id_reply, id_interact, user_id, isi) VALUES (?, ?, ?, ?)";
+    return await queryPromise(sql, [id_reply, id_interact, user_id, isi]);
+  },
+
+  async checkChildReplies(id_interact) {
+    const sql = "SELECT * FROM user_reply_diskusi WHERE id_interact = ?";
+    return await queryPromise(sql, [id_interact]);
+  },
+
+  async updateFirstReplyToDeleted(id_interact) {
+    const sql = "UPDATE user_in_diskusi SET isi = '[deleted]' WHERE id_interact = ?";
+    return await queryPromise(sql, [id_interact]);
+  },
+
+  async deleteFirstReply(id_interact) {
+    const sql = "DELETE FROM user_in_diskusi WHERE id_interact = ?";
+    return await queryPromise(sql, [id_interact]);
+  },
+
+  async deleteSecondReply(id_reply) {
+    const sql = "DELETE FROM user_reply_diskusi WHERE id_reply = ?";
+    return await queryPromise(sql, [id_reply]);
+  },
+  
+  async checkKomoditasHargaPasar() {
+    const API_URL = process.env.API_URL_KOMODITAS_HARGA_PASAR;
+    const CACHE_FILE = path.join(__dirname, "../cache/komoditas_cache.json");
+    const TTL = 60 * 60 * 1000; // 1 jam
+
+    try {
+        const stats = await fs.stat(CACHE_FILE);
+        if (Date.now() - stats.mtimeMs < TTL) {
+            console.log("Serving komoditas from file cache");
+            const raw = await fs.readFile(CACHE_FILE, "utf-8");
+            return JSON.parse(raw).data;
+        }
+    } catch (err) {
+        // Cache tidak ada atau error, lanjutkan ke API call
+    }
+
+    try {
+        const response = await axios.get(API_URL);
         const komoditas = response.data.data.map((item) => ({
-          id: item.id,
-          nama: item.name,
-          satuan: item.satuan,
-          hari_ini: item.today,
-          kemarin: item.yesterday,
-          tanggal_kemarin: item.yesterday_date,
-          gap: item.gap,
-          gap_persen: item.gap_percentage,
-          gap_change: item.gap_change,
-          gap_color: item.gap_color,
-          gambar: item.background,
+            id: item.id, nama: item.name, satuan: item.satuan,
+            hari_ini: item.today, kemarin: item.yesterday, tanggal_kemarin: item.yesterday_date,
+            gap: item.gap, gap_persen: item.gap_percentage, gap_change: item.gap_change,
+            gap_color: item.gap_color, gambar: item.background,
         }));
 
-        const cacheData = {
-          timestamp: Date.now(),
-          data: komoditas,
-        };
-
-        fs.writeFileSync(CACHE_FILE, JSON.stringify(cacheData), "utf-8");
-        callback(null, komoditas);
-      })
-      .catch((error) => {
+        const cacheData = { timestamp: Date.now(), data: komoditas };
+        await fs.writeFile(CACHE_FILE, JSON.stringify(cacheData), "utf-8");
+        return komoditas;
+    } catch (error) {
         console.error("Error fetching komoditas harga pasar:", error);
-        callback(error, null);
-      });
+        throw error; // Lemparkan error agar ditangkap oleh controller
+    }
   },
 };
 

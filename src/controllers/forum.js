@@ -1,743 +1,256 @@
-const db = require("../config/db/setup");
+// forum.js
+
 const ForumModel = require("../models/forumModel");
 
+// --- HELPER FUNCTION UNTUK MENGHINDARI DUPLIKASI KODE ---
+// Fungsi ini mengambil sekumpulan post, lalu melengkapinya dengan balasan dan jumlah balasan.
+const attachRepliesToPosts = async (posts) => {
+  const enrichedPosts = await Promise.all(
+    posts.map(async (item) => {
+      const mainReplies = await ForumModel.getMainReplies(item.id_diskusi);
+      let replyCount = mainReplies.length;
+
+      const enrichedMainReplies = await Promise.all(
+        mainReplies.map(async (reply) => {
+          const subReplies = await ForumModel.getSubReplies(reply.id_interact);
+          replyCount += subReplies.length;
+
+          const formattedSubReplies = subReplies.map((sub) => ({
+            id_reply: sub.id_reply,
+            username: sub.username,
+            tanggal: sub.tanggal,
+            isi: sub.isi,
+          }));
+
+          return {
+            id_interact: reply.id_interact,
+            username: reply.username,
+            tanggal: reply.tanggal,
+            isi: reply.isi,
+            sub_replies: formattedSubReplies,
+          };
+        })
+      );
+
+      return {
+        ...item,
+        main_replies: enrichedMainReplies,
+        jumlah_replies: replyCount,
+      };
+    })
+  );
+  return enrichedPosts;
+};
+// --- END OF HELPER FUNCTION ---
+
+
 const getForumTerakhir = async (req, res) => {
-  const user_id = req.user.user_id;
   try {
-    ForumModel.getForumDiskusiByID(user_id, (err, forumResults) => {
-      if (err) return res.status(500).send(err);
+    const user_id = req.user.user_id;
+    const forumResults = await ForumModel.getForumDiskusiByID(user_id);
+    
+    const formattedResult = forumResults.map((item) => ({
+      id_diskusi: item.id_diskusi, username: item.username, tgl_dibuat: item.tgl_dibuat,
+      judul: item.judul, isi: item.isi, jumlah_pembaca: item.jumlah_pembaca,
+      kategori: { id_kategori: item.id_kategori, nama: item.nama_kategori },
+    }));
 
-      const formattedResult = forumResults.map((item) => ({
-        id_diskusi: item.id_diskusi,
-        username: item.username,
-        tgl_dibuat: item.tgl_dibuat,
-        judul: item.judul,
-        isi: item.isi,
-        jumlah_pembaca: item.jumlah_pembaca,
-        kategori: {
-          id_kategori: item.id_kategori,
-          nama: item.nama_kategori,
-        },
-      }));
-
-      const promises = formattedResult.map((item) => {
-        return new Promise((resolve, reject) => {
-          ForumModel.getMainReplies(item.id_diskusi, (err, mainReplies) => {
-            if (err) return reject(err);
-
-            let replyCount = mainReplies.length;
-            const mainReplyPromises = mainReplies.map((reply) => {
-              return new Promise((resolveSub, rejectSub) => {
-                ForumModel.getSubReplies(
-                  reply.id_interact,
-                  (err, subReplies) => {
-                    if (err) return rejectSub(err);
-
-                    replyCount += subReplies.length;
-                    const formattedReply = {
-                      id_interact: reply.id_interact,
-                      username: reply.username,
-                      tanggal: reply.tanggal,
-                      isi: reply.isi,
-                    };
-
-                    const formattedSubReplies = subReplies.map((subReply) => ({
-                      id_reply: subReply.id_reply,
-                      username: subReply.username,
-                      tanggal: subReply.tanggal,
-                      isi: subReply.isi,
-                    }));
-
-                    formattedReply.sub_replies = formattedSubReplies;
-                    resolveSub(formattedReply);
-                  }
-                );
-              });
-            });
-
-            Promise.all(mainReplyPromises)
-              .then((completedMainReplies) => {
-                item.main_replies = completedMainReplies;
-                item.jumlah_replies = replyCount;
-                resolve(item);
-              })
-              .catch(reject);
-          });
-        });
-      });
-
-      Promise.all(promises)
-        .then((finalResult) => res.json(finalResult))
-        .catch((err) => res.status(500).send(err));
-    });
+    const finalResult = await attachRepliesToPosts(formattedResult);
+    res.json(finalResult);
   } catch (error) {
-    res.status(500).json({ message: "Server error", error });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
 const getAllForum = async (req, res) => {
   try {
-    ForumModel.getAllForumDiskusi((err, result) => {
-      if (err) return res.status(500).send(err);
+    const results = await ForumModel.getAllForumDiskusi();
+    
+    const formattedResult = results.map((item) => ({
+      id_diskusi: item.id_diskusi, username: item.username, tgl_dibuat: item.tgl_dibuat,
+      judul: item.judul, isi: item.isi, jumlah_pembaca: item.jumlah_pembaca,
+      kategori: { id_kategori: item.id_kategori, nama: item.nama_kategori },
+    }));
 
-      const formattedResult = result.map((item) => ({
-        id_diskusi: item.id_diskusi,
-        username: item.username,
-        tgl_dibuat: item.tgl_dibuat,
-        judul: item.judul,
-        isi: item.isi,
-        jumlah_pembaca: item.jumlah_pembaca,
-        kategori: {
-          id_kategori: item.id_kategori,
-          nama: item.nama_kategori,
-        },
-      }));
-
-      const promises = formattedResult.map((item) => {
-        return new Promise((resolve, reject) => {
-          ForumModel.getMainReplies(item.id_diskusi, (err, mainReplies) => {
-            if (err) return reject(err);
-
-            let replyCount = mainReplies.length;
-
-            const mainReplyPromises = mainReplies.map((reply) => {
-              return new Promise((resolveSub, rejectSub) => {
-                ForumModel.getSubReplies(
-                  reply.id_interact,
-                  (err, subReplies) => {
-                    if (err) return rejectSub(err);
-
-                    replyCount += subReplies.length;
-                    const formattedReply = {
-                      id_interact: reply.id_interact,
-                      user: {
-                        username: reply.username,
-                      },
-                      tanggal: reply.tanggal,
-                      isi: reply.isi,
-                    };
-
-                    const formattedSubReplies = subReplies.map((subReply) => ({
-                      id_reply: subReply.id_reply,
-                      user: {
-                        username: subReply.username,
-                      },
-                      tanggal: subReply.tanggal,
-                      isi: subReply.isi,
-                    }));
-
-                    formattedReply.sub_replies = formattedSubReplies;
-
-                    resolveSub(formattedReply);
-                  }
-                );
-              });
-            });
-
-            Promise.all(mainReplyPromises)
-              .then((completedMainReplies) => {
-                item.main_replies = completedMainReplies;
-                item.jumlah_replies = replyCount;
-                resolve(item);
-              })
-              .catch(reject);
-          });
-        });
-      });
-
-      Promise.all(promises)
-        .then((finalResult) => res.json(finalResult))
-        .catch((err) => res.status(500).send(err));
-    });
+    const finalResult = await attachRepliesToPosts(formattedResult);
+    res.json(finalResult);
   } catch (error) {
-    res.status(500).send(error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
 const getForumTerbaru = async (req, res) => {
-  try {
-    const sql =
-      "SELECT * FROM forum_diskusi JOIN kategori ON forum_diskusi.id_kategori = kategori.id_kategori ORDER BY tgl_dibuat DESC";
-    const mainReply =
-      "SELECT * FROM user_in_diskusi JOIN users ON user_in_diskusi.user_id = users.user_id WHERE id_diskusi = ?";
-    const subReply =
-      "SELECT * FROM user_reply_diskusi JOIN users ON user_reply_diskusi.user_id = users.user_id WHERE id_interact = ?";
-
-    db.query(sql, (err, result) => {
-      if (err) return res.status(500).send(err);
-
-      const formattedResult = result.map((item) => ({
-        id_diskusi: item.id_diskusi,
-        username: item.username,
-        tgl_dibuat: item.tgl_dibuat,
-        judul: item.judul,
-        isi: item.isi,
-        jumlah_pembaca: item.jumlah_pembaca,
-        kategori: {
-          id_kategori: item.id_kategori,
-          nama: item.nama_kategori,
-        },
-      }));
-
-      const promises = formattedResult.map((item) => {
-        return new Promise((resolve, reject) => {
-          db.query(mainReply, [item.id_diskusi], (err, main_replies) => {
-            if (err) return reject(err);
-
-            let replyCount = main_replies.length;
-
-            const mainReplyPromises = main_replies.map((reply) => {
-              return new Promise((resolveSub, rejectSub) => {
-                db.query(subReply, [reply.id_interact], (err, sub_replies) => {
-                  if (err) return rejectSub(err);
-
-                  replyCount += sub_replies.length;
-                  const formattedReply = {
-                    id_interact: reply.id_interact,
-                    username: reply.username,
-                    tanggal: reply.tanggal,
-                    isi: reply.isi,
-                  };
-
-                  const formattedSubReplies = sub_replies.map((subReply) => ({
-                    id_reply: subReply.id_reply,
-                    username: subReply.username,
-                    tanggal: subReply.tanggal,
-                    isi: subReply.isi,
-                  }));
-
-                  formattedReply.sub_replies = formattedSubReplies;
-
-                  resolveSub(formattedReply);
-                });
-              });
-            });
-
-            Promise.all(mainReplyPromises)
-              .then((completemain_replies) => {
-                item.main_replies = completemain_replies;
-                item.jumlah_replies = replyCount;
-                resolve(item);
-              })
-              .catch(reject);
-          });
-        });
-      });
-
-      Promise.all(promises)
-        .then((finalResult) => res.json(finalResult))
-        .catch((err) => res.status(500).send(err));
-    });
-  } catch (error) {
-    res.status(500).send(error);
-  }
+    // Fungsi ini tampak identik dengan getAllForum, tapi hanya mengambil dari tabel forum dan kategori.
+    // Jika tujuannya sama, bisa digabung. Jika berbeda, implementasinya di bawah.
+    try {
+        const results = await ForumModel.getForumTerbaru();
+        const formattedResult = results.map(item => ({
+            id_diskusi: item.id_diskusi, username: item.username, tgl_dibuat: item.tgl_dibuat,
+            judul: item.judul, isi: item.isi, jumlah_pembaca: item.jumlah_pembaca,
+            kategori: { id_kategori: item.id_kategori, nama: item.nama_kategori },
+        }));
+        const finalResult = await attachRepliesToPosts(formattedResult);
+        res.json(finalResult);
+    } catch (error) {
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
 };
 
 const getForumTopDiskusi = async (req, res) => {
   try {
-    ForumModel.getForumTopDiskusi((err, result) => {
-      if (err) return res.status(500).send(err);
+    const results = await ForumModel.getForumTopDiskusi();
+    
+    const formattedResult = results.map((item) => ({
+      id_diskusi: item.id_diskusi, username: item.username, tgl_dibuat: item.tgl_dibuat,
+      judul: item.judul, isi: item.isi, jumlah_pembaca: item.jumlah_pembaca,
+      kategori: { id_kategori: item.id_kategori, nama: item.nama_kategori },
+    }));
 
-      const formattedResult = result.map((item) => ({
-        id_diskusi: item.id_diskusi,
-        username: item.username,
-        tgl_dibuat: item.tgl_dibuat,
-        judul: item.judul,
-        isi: item.isi,
-        jumlah_pembaca: item.jumlah_pembaca,
-        kategori: {
-          id_kategori: item.id_kategori,
-          nama: item.nama_kategori,
-        },
-      }));
+    const finalResultWithReplies = await attachRepliesToPosts(formattedResult);
 
-      // Handling replies asynchronously
-      const promises = formattedResult.map((item) => {
-        return new Promise((resolve, reject) => {
-          ForumModel.getMainReplies(item.id_diskusi, (err, mainReplies) => {
-            if (err) return reject(err);
-
-            let replyCount = mainReplies.length;
-
-            const mainReplyPromises = mainReplies.map((reply) => {
-              return new Promise((resolveSub, rejectSub) => {
-                ForumModel.getSubReplies(
-                  reply.id_interact,
-                  (err, subReplies) => {
-                    if (err) return rejectSub(err);
-
-                    replyCount += subReplies.length;
-                    const formattedReply = {
-                      id_interact: reply.id_interact,
-                      username: reply.username,
-                      tanggal: reply.tanggal,
-                      isi: reply.isi,
-                    };
-
-                    const formattedSubReplies = subReplies.map((subReply) => ({
-                      id_reply: subReply.id_reply,
-                      username: subReply.username,
-                      tanggal: subReply.tanggal,
-                      isi: subReply.isi,
-                    }));
-
-                    formattedReply.sub_replies = formattedSubReplies;
-
-                    resolveSub(formattedReply);
-                  }
-                );
-              });
-            });
-
-            Promise.all(mainReplyPromises)
-              .then((completedMainReplies) => {
-                item.main_replies = completedMainReplies;
-                item.jumlah_replies = replyCount;
-                resolve(item);
-              })
-              .catch(reject);
-          });
-        });
-      });
-
-      Promise.all(promises)
-        .then((finalResult) => {
-          return finalResult.sort((a, b) => {
-            const aScore = a.jumlah_pembaca + a.jumlah_replies;
-            const bScore = b.jumlah_pembaca + b.jumlah_replies;
-            return bScore - aScore;
-          });
-        })
-        .then((sortedResult) => {
-          res.status(200).send(sortedResult);
-        })
-        .catch((err) => res.status(500).send(err));
+    const sortedResult = finalResultWithReplies.sort((a, b) => {
+      const aScore = a.jumlah_pembaca + a.jumlah_replies;
+      const bScore = b.jumlah_pembaca + b.jumlah_replies;
+      return bScore - aScore;
     });
+
+    res.json(sortedResult);
   } catch (error) {
-    res.status(500).send(error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
 const getForumByKategori = async (req, res) => {
-  try {
-    ForumModel.getForumByKategori(req.params.id, (err, result) => {
-      if (err) return res.status(500).send(err);
-
-      const formattedResult = result.map((item) => ({
-        id_diskusi: item.id_diskusi,
-        user: {
-          username: item.username,
-        },
-        tgl_dibuat: item.tgl_dibuat,
-        judul: item.judul,
-        isi: item.isi,
-        jumlah_pembaca: item.jumlah_pembaca,
-        kategori: {
-          id_kategori: item.id_kategori,
-          nama: item.nama_kategori,
-        },
-      }));
-
-      const promises = formattedResult.map((item) => {
-        return new Promise((resolve, reject) => {
-          ForumModel.getMainReplies(item.id_diskusi, (err, mainReplies) => {
-            if (err) return reject(err);
-
-            let replyCount = mainReplies.length;
-
-            const mainReplyPromises = mainReplies.map((reply) => {
-              return new Promise((resolveSub, rejectSub) => {
-                ForumModel.getSubReplies(
-                  reply.id_interact,
-                  (err, subReplies) => {
-                    if (err) return rejectSub(err);
-
-                    replyCount += subReplies.length;
-                    const formattedReply = {
-                      id_interact: reply.id_interact,
-                      user: {
-                        username: reply.username,
-                      },
-                      tanggal: reply.tanggal,
-                      isi: reply.isi,
-                    };
-
-                    const formattedSubReplies = subReplies.map((subReply) => ({
-                      id_reply: subReply.id_reply,
-                      user: {
-                        username: subReply.username,
-                      },
-                      tanggal: subReply.tanggal,
-                      isi: subReply.isi,
-                    }));
-
-                    formattedReply.sub_replies = formattedSubReplies;
-
-                    resolveSub(formattedReply);
-                  }
-                );
-              });
-            });
-
-            Promise.all(mainReplyPromises)
-              .then((completedMainReplies) => {
-                item.main_replies = completedMainReplies;
-                item.jumlah_replies = replyCount;
-                resolve(item);
-              })
-              .catch(reject);
-          });
-        });
-      });
-
-      Promise.all(promises)
-        .then((finalResult) => res.json(finalResult))
-        .catch((err) => res.status(500).send(err));
-    });
-  } catch (error) {
-    res.status(500).send(error);
-  }
+    try {
+        const results = await ForumModel.getForumByKategori(req.params.id);
+        const formattedResult = results.map(item => ({
+             id_diskusi: item.id_diskusi, username: item.username, tgl_dibuat: item.tgl_dibuat,
+             judul: item.judul, isi: item.isi, jumlah_pembaca: item.jumlah_pembaca,
+             kategori: { id_kategori: item.id_kategori, nama: item.nama_kategori },
+        }));
+        const finalResult = await attachRepliesToPosts(formattedResult);
+        res.json(finalResult);
+    } catch (error) {
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
 };
 
 const getForumByKeyword = async (req, res) => {
-  try {
-    const searchQuery = `%${req.params.search}%`;
-
-    ForumModel.searchForumByKeyword(searchQuery, (err, result) => {
-      if (err) return res.status(500).send(err);
-
-      const formattedResult = result.map((item) => ({
-        id_diskusi: item.id_diskusi,
-        user: {
-          username: item.username,
-        },
-        tgl_dibuat: item.tgl_dibuat,
-        judul: item.judul,
-        isi: item.isi,
-        jumlah_pembaca: item.jumlah_pembaca,
-        kategori: {
-          id_kategori: item.id_kategori,
-          nama: item.nama_kategori,
-        },
-      }));
-
-      const promises = formattedResult.map((item) => {
-        return new Promise((resolve, reject) => {
-          ForumModel.getMainReplies(item.id_diskusi, (err, mainReplies) => {
-            if (err) return reject(err);
-
-            let replyCount = mainReplies.length;
-
-            const mainReplyPromises = mainReplies.map((reply) => {
-              return new Promise((resolveSub, rejectSub) => {
-                ForumModel.getSubReplies(
-                  reply.id_interact,
-                  (err, subReplies) => {
-                    if (err) return rejectSub(err);
-
-                    replyCount += subReplies.length;
-                    const formattedReply = {
-                      id_interact: reply.id_interact,
-                      user: {
-                        username: reply.username,
-                      },
-                      tanggal: reply.tanggal,
-                      isi: reply.isi,
-                    };
-
-                    const formattedSubReplies = subReplies.map((subReply) => ({
-                      id_reply: subReply.id_reply,
-                      user: {
-                        username: subReply.username,
-                      },
-                      tanggal: subReply.tanggal,
-                      isi: subReply.isi,
-                    }));
-
-                    formattedReply.sub_replies = formattedSubReplies;
-
-                    resolveSub(formattedReply);
-                  }
-                );
-              });
-            });
-
-            Promise.all(mainReplyPromises)
-              .then((completedMainReplies) => {
-                item.main_replies = completedMainReplies;
-                item.jumlah_replies = replyCount;
-                resolve(item);
-              })
-              .catch(reject);
-          });
-        });
-      });
-
-      Promise.all(promises)
-        .then((finalResult) => res.json(finalResult))
-        .catch((err) => res.status(500).send(err));
-    });
-  } catch (error) {
-    res.status(500).send(error);
-  }
+    try {
+        const results = await ForumModel.searchForumByKeyword(req.params.search);
+        const formattedResult = results.map(item => ({
+             id_diskusi: item.id_diskusi, username: item.username, tgl_dibuat: item.tgl_dibuat,
+             judul: item.judul, isi: item.isi, jumlah_pembaca: item.jumlah_pembaca,
+             kategori: { id_kategori: item.id_kategori, nama: item.nama_kategori },
+        }));
+        const finalResult = await attachRepliesToPosts(formattedResult);
+        res.json(finalResult);
+    } catch (error) {
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
 };
 
 const getForumById = async (req, res) => {
-  try {
-    const idDiskusi = req.params.id;
+    try {
+        const idDiskusi = req.params.id;
+        const results = await ForumModel.getForumById(idDiskusi);
+        if (results.length === 0) {
+            return res.status(404).json({ message: "Forum not found" });
+        }
+        
+        await ForumModel.updateViewCount(idDiskusi);
 
-    ForumModel.getForumById(idDiskusi, (err, result) => {
-      if (err) return res.status(500).send(err);
+        const formattedResult = results.map(item => ({
+            id_diskusi: item.id_diskusi, username: item.username, tgl_dibuat: item.tgl_dibuat,
+            gambar: item.gambar, judul: item.judul, isi: item.isi, jumlah_pembaca: item.jumlah_pembaca + 1, // +1 for current view
+            kategori: { id_kategori: item.id_kategori, nama: item.nama_kategori },
+        }));
 
-      const formattedResult = result.map((item) => ({
-        id_diskusi: item.id_diskusi,
-        user: {
-          username: item.username,
-        },
-        tgl_dibuat: item.tgl_dibuat,
-        gambar: item.gambar,
-        judul: item.judul,
-        isi: item.isi,
-        jumlah_pembaca: item.jumlah_pembaca,
-        kategori: {
-          id_kategori: item.id_kategori,
-          nama: item.nama_kategori,
-        },
-      }));
-
-      ForumModel.updateViewCount(idDiskusi, (err) => {
-        if (err) return res.status(500).send(err);
-      });
-
-      const promises = formattedResult.map((item) => {
-        return new Promise((resolve, reject) => {
-          ForumModel.getMainReplies(item.id_diskusi, (err, mainReplies) => {
-            if (err) return reject(err);
-
-            let replyCount = mainReplies.length;
-
-            const mainReplyPromises = mainReplies.map((reply) => {
-              return new Promise((resolveSub, rejectSub) => {
-                ForumModel.getSubReplies(
-                  reply.id_interact,
-                  (err, subReplies) => {
-                    if (err) return rejectSub(err);
-
-                    replyCount += subReplies.length;
-                    const formattedReply = {
-                      id_interact: reply.id_interact,
-                      user: {
-                        username: reply.username,
-                        ip: reply.ip,
-                      },
-                      tanggal: reply.tanggal,
-                      isi: reply.isi,
-                    };
-
-                    const formattedSubReplies = subReplies.map((subReply) => ({
-                      id_reply: subReply.id_reply,
-                      user: {
-                        username: subReply.username,
-                        ip: subReply.ip,
-                      },
-                      tanggal: subReply.tanggal,
-                      isi: subReply.isi,
-                    }));
-
-                    formattedReply.sub_replies = formattedSubReplies;
-
-                    resolveSub(formattedReply);
-                  }
-                );
-              });
-            });
-
-            Promise.all(mainReplyPromises)
-              .then((completedMainReplies) => {
-                item.main_replies = completedMainReplies;
-                item.jumlah_replies = replyCount;
-                resolve(item);
-              })
-              .catch(reject);
-          });
-        });
-      });
-
-      Promise.all(promises)
-        .then((finalResult) => res.json(finalResult))
-        .catch((err) => res.status(500).send(err));
-    });
-  } catch (error) {
-    res.status(500).send(error);
-  }
+        const finalResult = await attachRepliesToPosts(formattedResult);
+        res.json(finalResult[0]); // Return as an object, not an array
+    } catch (error) {
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
 };
 
 const createForum = async (req, res) => {
-  const user_id = req.user.user_id;
   try {
     const { judul, isi, id_kategori } = req.body;
     const gambar = req.file ? req.file.path.replace(/^public/, "") : null;
+    const user_id = req.user.user_id;
 
-    ForumModel.createForum(
-      user_id,
-      gambar,
-      judul,
-      isi,
-      id_kategori,
-      (err, result) => {
-        if (err) {
-          return res
-            .status(500)
-            .json({ message: "Database error", error: err });
-        }
-
-        res.json({
-          message: "Diskusi added successfully",
-          id_diskusi: result.insertId,
-        });
-      }
-    );
+    const result = await ForumModel.createForum(user_id, gambar, judul, isi, id_kategori);
+    res.status(201).json({ message: "Diskusi added successfully", id_diskusi: result.insertId });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
 const deleteForum = async (req, res) => {
   try {
     const { id } = req.params;
-
-    ForumModel.deleteForum(id, (err, result) => {
-      if (err) {
-        return res.status(500).json({ message: "Database error", error: err });
-      }
-
-      res.json({ message: "Diskusi deleted successfully" });
-    });
+    await ForumModel.deleteForum(id);
+    res.json({ message: "Diskusi deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
 const createReply = async (req, res) => {
-  const user_id = req.user.user_id;
   try {
     const { id_reply, id_diskusi, id_interact, isi } = req.body;
+    const user_id = req.user.user_id;
 
     if (id_interact === null) {
-      ForumModel.createReply(
-        id_reply,
-        id_diskusi,
-        user_id,
-        isi,
-        (err, result) => {
-          if (err) {
-            return res
-              .status(500)
-              .json({ message: "Database error", error: err });
-          }
-
-          res.json({ message: "Reply added successfully" });
-        }
-      );
+      await ForumModel.createReply(id_reply, id_diskusi, user_id, isi);
     } else {
-      ForumModel.createSubReply(
-        id_reply,
-        id_interact,
-        user_id,
-        isi,
-        (err, result) => {
-          if (err) {
-            return res
-              .status(500)
-              .json({ message: "Database error", error: err });
-          }
-
-          res.json({ message: "Reply added successfully" });
-        }
-      );
+      await ForumModel.createSubReply(id_reply, id_interact, user_id, isi);
     }
+    res.status(201).json({ message: "Reply added successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
 const deleteFirstReply = async (req, res) => {
   try {
     const { id } = req.params;
+    const childReplies = await ForumModel.checkChildReplies(id);
 
-    ForumModel.checkChildReplies(id, (err, result) => {
-      if (err)
-        return res.status(500).json({ message: "Database error", error: err });
-
-      if (result.length > 0) {
-        ForumModel.updateFirstReplyToDeleted(id, (err, result) => {
-          if (err)
-            return res
-              .status(500)
-              .json({ message: "Database error", error: err });
-
-          res.json({
-            message: "Reply deleted successfully (first reply updated)",
-          });
-        });
-      } else {
-        ForumModel.deleteFirstReply(id, (err, result) => {
-          if (err)
-            return res
-              .status(500)
-              .json({ message: "Database error", error: err });
-
-          res.json({
-            message: "Reply deleted successfully (first reply removed)",
-          });
-        });
-      }
-    });
+    if (childReplies.length > 0) {
+      await ForumModel.updateFirstReplyToDeleted(id);
+      res.json({ message: "Reply has children, content set to [deleted]" });
+    } else {
+      await ForumModel.deleteFirstReply(id);
+      res.json({ message: "Reply deleted successfully" });
+    }
   } catch (error) {
-    res.status(500).json({ message: "Server error", error });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
 const deleteSecondReply = async (req, res) => {
   try {
     const { id } = req.params;
-
-    ForumModel.deleteSecondReply(id, (err, result) => {
-      if (err)
-        return res.status(500).json({ message: "Database error", error: err });
-
-      res.json({ message: "Reply deleted successfully" });
-    });
+    await ForumModel.deleteSecondReply(id);
+    res.json({ message: "Reply deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error });
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
 const checkHargaKomoditasProdusen = async (req, res) => {
-  try {
-    ForumModel.checkKomoditasHargaPasar((err, result) => {
-      if (err)
-        return res.status(500).json({ message: "Database error", error: err });
-
-      res.json(result);
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error });
-  }
+    try {
+        const result = await ForumModel.checkKomoditasHargaPasar();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
 };
 
 module.exports = {
-  getForumTerakhir,
-  getAllForum,
-  getForumTerbaru,
-  getForumTopDiskusi,
-  getForumByKategori,
-  getForumByKeyword,
-  getForumById,
-  createForum,
-  deleteForum,
-  createReply,
-  deleteFirstReply,
-  deleteSecondReply,
+  getForumTerakhir, getAllForum, getForumTerbaru, getForumTopDiskusi,
+  getForumByKategori, getForumByKeyword, getForumById, createForum,
+  deleteForum, createReply, deleteFirstReply, deleteSecondReply,
   checkHargaKomoditasProdusen,
 };
