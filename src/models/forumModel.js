@@ -89,7 +89,8 @@ const ForumModel = {
 
   async getForumByKategori(idKategori) {
     const sql = `SELECT * FROM forum_diskusi 
-                 JOIN kategori ON forum_diskusi.id_kategori = kategori.id_kategori 
+                 JOIN kategori ON forum_diskusi.id_kategori = kategori.id_kategori
+                 JOIN users ON forum_diskusi.user_id = users.user_id 
                  WHERE forum_diskusi.id_kategori = ?`;
     return await queryPromise(sql, [idKategori]);
   },
