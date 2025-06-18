@@ -25,8 +25,11 @@ const getFieldByUserID = async (req, res) => {
 const createField = async (req, res) => {
   try {
     const data = { ...req.body, user_id: req.user.user_id };
-    await FieldModel.createField(data);
-    res.status(201).json({ message: "Field created successfully" });
+    const id_field = await FieldModel.createField(data);
+    res.status(201).json({
+      message: "Field created successfully",
+      c_id: id_field,
+    });
   } catch (error) {
     console.error("Error creating field:", error);
     res.status(500).json({ message: "Error: Creating field error" });
@@ -124,13 +127,15 @@ const reverseGeocode = async (req, res) => {
       {
         httpsAgent: agent,
         params: { lat, lon, format: "json", "accept-language": "id" },
-        headers: { "User-Agent": "Mahitala", "Content-Type": "application/json" }
+        headers: {
+          "User-Agent": "Mahitala",
+          "Content-Type": "application/json",
+        },
       }
     );
     const data = response.data;
     await fs.writeFile(cacheFile, JSON.stringify(data), "utf-8");
     return res.json(data);
-
   } catch (error) {
     console.error("Gagal mengambil dari API, mencoba membaca dari cache...");
     try {
@@ -139,13 +144,13 @@ const reverseGeocode = async (req, res) => {
       return res.json({
         ...data,
         from_cache: true,
-        warning: "Data diambil dari cache karena API gagal."
+        warning: "Data diambil dari cache karena API gagal.",
       });
     } catch (cacheError) {
       console.error("Gagal membaca cache juga:", cacheError);
       return res.status(500).json({
         message: "Gagal mengambil data dari API dan cache.",
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -154,11 +159,14 @@ const reverseGeocode = async (req, res) => {
 const radarInfo = async (req, res) => {
   const bmkgApiUrl = process.env.API_RADAR;
   if (!bmkgApiUrl) {
-    return res.status(500).json({ message: "URL API BMKG tidak terkonfigurasi di .env" });
+    return res
+      .status(500)
+      .json({ message: "URL API BMKG tidak terkonfigurasi di .env" });
   }
   const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    'Referer': 'https://signature.bmkg.go.id/'
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    Referer: "https://signature.bmkg.go.id/",
   };
   try {
     const response = await axios.get(bmkgApiUrl, { headers });
@@ -166,20 +174,33 @@ const radarInfo = async (req, res) => {
   } catch (error) {
     console.error("Error saat mengambil data radar dari BMKG:", error.message);
     if (error.response) {
-      res.status(error.response.status).json({ 
-        message: "Server BMKG memberikan respons error", 
+      res.status(error.response.status).json({
+        message: "Server BMKG memberikan respons error",
         bmkg_status: error.response.status,
-        bmkg_data: error.response.data 
+        bmkg_data: error.response.data,
       });
     } else if (error.request) {
-      res.status(504).json({ message: "Tidak ada respons dari server BMKG (Gateway Timeout)" });
+      res
+        .status(504)
+        .json({
+          message: "Tidak ada respons dari server BMKG (Gateway Timeout)",
+        });
     } else {
-      res.status(500).json({ message: "Terjadi kesalahan internal", error: error.message });
+      res
+        .status(500)
+        .json({ message: "Terjadi kesalahan internal", error: error.message });
     }
   }
 };
 
 module.exports = {
-  getFieldByUserID, createField, updateField, deleteField,
-  getFieldById, getCropData, getCropById, reverseGeocode, radarInfo
+  getFieldByUserID,
+  createField,
+  updateField,
+  deleteField,
+  getFieldById,
+  getCropData,
+  getCropById,
+  reverseGeocode,
+  radarInfo,
 };
