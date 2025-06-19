@@ -316,4 +316,4 @@ const registerToken = async (req, res) => {
   }
 };
 
-module.exports = { fetchBMKGIssued, registerToken };
+module.exports = { generateData, registerToken };

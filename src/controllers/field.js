@@ -193,6 +193,43 @@ const radarInfo = async (req, res) => {
   }
 };
 
+const proxyWeatherTile = async (req, res) => {
+  const { layer, z, x, y } = req.params;
+  const tileUrl = `https://tile.openweathermap.org/map/${layer}/${z}/${x}/${y}.png?appid=${process.env.OWM_API_KEY}`;
+
+  try {
+    const response = await axios.get(tileUrl, { responseType: "stream" });
+    res.setHeader("Content-Type", "image/png");
+    response.data.pipe(res);
+  } catch (error) {
+    console.error("Gagal mengambil tile cuaca:", error.message);
+    res.status(500).json({ message: "Gagal mengambil tile cuaca" });
+  }
+};
+
+const proxySentinelWMS = async (req, res) => {
+  const params = new URLSearchParams({
+    ...req.query,
+    REQUEST: "GetMap",
+    SERVICE: "WMS",
+    VERSION: "1.3.0",
+    LAYERS: "VEGETATION_INDEX",
+    FORMAT: "image/png",
+    TRANSPARENT: "true",
+  });
+
+  const url = `https://services.sentinel-hub.com/ogc/wms/${process.env.SENTINEL_HUB_INSTANCE}?${params.toString()}`;
+
+  try {
+    const response = await axios.get(url, { responseType: "stream" });
+    res.setHeader("Content-Type", "image/png");
+    response.data.pipe(res);
+  } catch (error) {
+    console.error("Gagal mengambil tile Sentinel WMS:", error.message);
+    res.status(500).json({ message: "Gagal mengambil tile Sentinel WMS" });
+  }
+};
+
 module.exports = {
   getFieldByUserID,
   createField,
@@ -203,4 +240,6 @@ module.exports = {
   getCropById,
   reverseGeocode,
   radarInfo,
+  proxyWeatherTile,
+  proxySentinelWMS,
 };
