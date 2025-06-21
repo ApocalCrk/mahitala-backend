@@ -7,6 +7,13 @@ const getCuacaNow = async (req, res) => {
   try {
     const data = await CuacaModel.fetchWeatherData(latitude, longitude);
     res.json({ dataCuaca: data });
+
+    if (req.user) {
+      const user_id = req.user.user_id;
+      CuacaModel.updateUserLocation(latitude, longitude, user_id).catch(err => {
+        console.error("Error updating user location:", err);
+      });
+    }
   } catch (err) {
     res.status(500).json({ message: "Error: Fetching data error" });
   }

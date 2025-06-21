@@ -30,7 +30,7 @@ const WeatherModel = {
       };
     } catch (error) {
       console.error("Error fetching weather data:", error);
-      throw error; // Lemparkan error agar bisa ditangkap oleh controller
+      throw error;
     }
   },
 
