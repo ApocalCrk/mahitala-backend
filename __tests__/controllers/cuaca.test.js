@@ -1,354 +1,208 @@
-const cuacaController = require('../../src/controllers/cuaca');
-const CuacaModel = require('../../src/models/cuacaModel');
-const dotenv = require('dotenv');
+const {
+  getCuacaNow,
+  getForecastData,
+  getWarningData,
+  getCropPredictions,
+  getCropRecommendation,
+  getForecastWeekly,
+} = require("../../src/controllers/cuaca");
+const CuacaModel = require("../../src/models/cuacaModel");
 
-jest.mock('../../src/models/cuacaModel', () => ({
-  fetchWeatherData: jest.fn(),
-  getNearestLocation: jest.fn(),
-  getForecastData: jest.fn(),
-  updateUserLocation: jest.fn(),
-  getWarningData: jest.fn(),
-  fetchCropPredictions: jest.fn(),
-  fetchCropRecommendations: jest.fn(),
-  fetchWeeklyForecast: jest.fn(),
-}));
+jest.mock("../../src/models/cuacaModel");
 
-jest.mock('dotenv', () => ({
-  config: jest.fn(),
-}));
+describe("Cuaca Controller", () => {
+  let req, res;
 
-const mockRequest = (body = {}, params = {}, query = {}, user = {}) => ({
-  body,
-  params,
-  query,
-  user,
-});
-
-const mockResponse = () => {
-  const res = {};
-  res.status = jest.fn().mockReturnValue(res);
-  res.json = jest.fn().mockReturnValue(res);
-  res.send = jest.fn().mockReturnValue(res);
-  return res;
-};
-
-describe('Cuaca Controller', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.DEFAULT_ADM = 'DEFAULT_ADM_VALUE';
-    process.env.DEFAULT_PROVINSI = 'DEFAULT_PROVINSI_VALUE';
+
+    req = {
+      query: {},
+      user: null,
+    };
+
+    res = {
+      json: jest.fn(),
+      status: jest.fn().mockReturnThis(),
+    };
   });
 
-  describe('getCuacaNow', () => {
-    test('should return weather data successfully', async () => {
-      const req = mockRequest({ adm: 'Yogyakarta' });
-      const res = mockResponse();
-      const mockData = { temp: 25, condition: 'Sunny' };
+  describe("getCuacaNow", () => {
+    it("should fetch weather data and return it as JSON", async () => {
+      req.query = { latitude: "123", longitude: "456" };
+      const mockWeatherData = { temp: 25, condition: "Sunny" };
+      CuacaModel.fetchWeatherData.mockResolvedValue(mockWeatherData);
 
-      CuacaModel.fetchWeatherData.mockImplementationOnce((adm, defaultAdm, callback) => {
-        callback(null, mockData);
-      });
+      await getCuacaNow(req, res);
 
-      await cuacaController.getCuacaNow(req, res);
-
-      expect(CuacaModel.fetchWeatherData).toHaveBeenCalledWith('Yogyakarta', 'DEFAULT_ADM_VALUE', expect.any(Function));
-      expect(res.json).toHaveBeenCalledWith({ dataCuaca: mockData });
+      expect(CuacaModel.fetchWeatherData).toHaveBeenCalledWith("123", "456");
+      expect(res.json).toHaveBeenCalledWith({ dataCuaca: mockWeatherData });
     });
 
-    test('should return 500 if fetching weather data fails', async () => {
-      const req = mockRequest({ adm: 'Yogyakarta' });
-      const res = mockResponse();
+    it("should update user location if a user is authenticated", async () => {
+      req.query = { latitude: "123", longitude: "456" };
+      req.user = { user_id: 1 };
+      const mockWeatherData = { temp: 25, condition: "Sunny" };
+      CuacaModel.fetchWeatherData.mockResolvedValue(mockWeatherData);
+      CuacaModel.updateUserLocation.mockResolvedValue();
 
-      CuacaModel.fetchWeatherData.mockImplementationOnce((adm, defaultAdm, callback) => {
-        callback(new Error('API error'), null);
-      });
+      await getCuacaNow(req, res);
 
-      await cuacaController.getCuacaNow(req, res);
-
-      expect(CuacaModel.fetchWeatherData).toHaveBeenCalledWith('Yogyakarta', 'DEFAULT_ADM_VALUE', expect.any(Function));
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Error: Fetching data error' });
-    });
-  });
-
-  describe('getNearestLocation', () => {
-    test('should return nearest location data successfully', async () => {
-      const req = mockRequest({ latitude: -7.7956, longitude: 110.3695 });
-      const res = mockResponse();
-      const mockData = { city: 'Yogyakarta', distance: 10 };
-
-      CuacaModel.getNearestLocation.mockImplementationOnce((lat, lon, callback) => {
-        callback(null, mockData);
-      });
-
-      await cuacaController.getNearestLocation(req, res);
-
-      expect(CuacaModel.getNearestLocation).toHaveBeenCalledWith(-7.7956, 110.3695, expect.any(Function));
-      expect(res.json).toHaveBeenCalledWith(mockData);
-    });
-
-    test('should return 500 if fetching nearest location fails', async () => {
-      const req = mockRequest({ latitude: -7.7956, longitude: 110.3695 });
-      const res = mockResponse();
-
-      CuacaModel.getNearestLocation.mockImplementationOnce((lat, lon, callback) => {
-        callback(new Error('DB error'), null);
-      });
-
-      await cuacaController.getNearestLocation(req, res);
-
-      expect(CuacaModel.getNearestLocation).toHaveBeenCalledWith(-7.7956, 110.3695, expect.any(Function));
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Error: Fetching data error' });
-    });
-  });
-
-  describe('getForecastData', () => {
-    test('should return forecast data and update user location if user is authenticated', async () => {
-      const req = mockRequest(
-        { latitude: -7.7956, longitude: 110.3695 },
-        {},
-        {},
-        { user_id: 1, username: 'testuser' }
+      expect(CuacaModel.fetchWeatherData).toHaveBeenCalledWith("123", "456");
+      expect(CuacaModel.updateUserLocation).toHaveBeenCalledWith(
+        "123",
+        "456",
+        1
       );
-      const res = mockResponse();
-      const mockData = { weatherData: [['forecast_data']] };
-
-      CuacaModel.getForecastData.mockImplementationOnce((lat, lon, callback) => {
-        callback(null, mockData);
-      });
-      CuacaModel.updateUserLocation.mockImplementationOnce((lat, lon, userId, callback) => {
-        callback(null);
-      });
-
-      await cuacaController.getForecastData(req, res);
-
-      expect(CuacaModel.getForecastData).toHaveBeenCalledWith(-7.7956, 110.3695, expect.any(Function));
-      expect(CuacaModel.updateUserLocation).toHaveBeenCalledWith(-7.7956, 110.3695, 1, expect.any(Function));
-      expect(res.json).toHaveBeenCalledWith(mockData);
+      expect(res.json).toHaveBeenCalledWith({ dataCuaca: mockWeatherData });
     });
 
-    test('should return forecast data without updating user location if user is not authenticated', async () => {
-      const req = mockRequest({ latitude: -7.7956, longitude: 110.3695 });
-      const res = mockResponse();
-      const mockData = { weatherData: [['forecast_data']] };
+    it("should handle errors by returning a 500 status", async () => {
+      req.query = { latitude: "123", longitude: "456" };
+      const errorMessage = "API is down";
+      CuacaModel.fetchWeatherData.mockRejectedValue(new Error(errorMessage));
 
-      CuacaModel.getForecastData.mockImplementationOnce((lat, lon, callback) => {
-        callback(null, mockData);
-      });
+      await getCuacaNow(req, res);
 
-      await cuacaController.getForecastData(req, res);
-
-      expect(CuacaModel.getForecastData).toHaveBeenCalledWith(-7.7956, 110.3695, expect.any(Function));
-      expect(CuacaModel.updateUserLocation).not.toHaveBeenCalled();
-      expect(res.json).toHaveBeenCalledWith(mockData);
-    });
-
-    test('should return 500 if fetching forecast data fails', async () => {
-      const req = mockRequest({ latitude: -7.7956, longitude: 110.3695 });
-      const res = mockResponse();
-
-      CuacaModel.getForecastData.mockImplementationOnce((lat, lon, callback) => {
-        callback(new Error('API error'), null);
-      });
-
-      await cuacaController.getForecastData(req, res);
-
-      expect(CuacaModel.getForecastData).toHaveBeenCalledWith(-7.7956, 110.3695, expect.any(Function));
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Error: Fetching data error' });
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Error: Fetching data error",
+      });
+    });
+  });
+
+  describe("getForecastData", () => {
+    it("should fetch forecast data successfully", async () => {
+      req.query = { latitude: "-7.7", longitude: "110.4" };
+      const mockForecast = [{ day: "Monday", temp: 30 }];
+      CuacaModel.getForecastData.mockResolvedValue(mockForecast);
+
+      await getForecastData(req, res);
+
+      expect(CuacaModel.getForecastData).toHaveBeenCalledWith("-7.7", "110.4");
+      expect(res.json).toHaveBeenCalledWith(mockForecast);
     });
 
-    test('should return 500 if updating user location fails', async () => {
-      const req = mockRequest(
-        { latitude: -7.7956, longitude: 110.3695 },
-        {},
-        {},
-        { user_id: 1, username: 'testuser' }
+    it("should handle errors by returning a 500 status", async () => {
+      req.query = { latitude: "-7.7", longitude: "110.4" };
+      CuacaModel.getForecastData.mockRejectedValue(new Error("Fetch failed"));
+
+      await getForecastData(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Error: Fetching data error",
+      });
+    });
+  });
+
+  describe("getWarningData", () => {
+    it("should fetch warning data successfully", async () => {
+      const mockWarningData = [{ type: "Flood", severity: "High" }];
+      CuacaModel.getWarningData.mockResolvedValue(mockWarningData);
+
+      await getWarningData(req, res);
+
+      expect(CuacaModel.getWarningData).toHaveBeenCalledTimes(1);
+      expect(res.json).toHaveBeenCalledWith(mockWarningData);
+    });
+
+    it("should handle errors by returning a 500 status", async () => {
+      CuacaModel.getWarningData.mockRejectedValue(new Error("Fetch failed"));
+
+      await getWarningData(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Error: Fetching data error",
+      });
+    });
+  });
+
+  describe("getCropPredictions", () => {
+    it("should fetch crop predictions successfully", async () => {
+      req.query = { latitude: "-7.7", longitude: "110.4" };
+      const mockPredictions = { crop: "Rice", probability: 0.9 };
+      CuacaModel.fetchCropPredictions.mockResolvedValue(mockPredictions);
+
+      await getCropPredictions(req, res);
+
+      expect(CuacaModel.fetchCropPredictions).toHaveBeenCalledWith({
+        latitude: "-7.7",
+        longitude: "110.4",
+      });
+      expect(res.json).toHaveBeenCalledWith(mockPredictions);
+    });
+
+    it("should handle errors by returning a 500 status", async () => {
+      req.query = { latitude: "-7.7", longitude: "110.4" };
+      CuacaModel.fetchCropPredictions.mockRejectedValue(
+        new Error("Fetch failed")
       );
-      const res = mockResponse();
-      const mockData = { weatherData: [['forecast_data']] };
 
-      CuacaModel.getForecastData.mockImplementationOnce((lat, lon, callback) => {
-        callback(null, mockData);
-      });
-      CuacaModel.updateUserLocation.mockImplementationOnce((lat, lon, userId, callback) => {
-        callback(new Error('Update error'));
-      });
+      await getCropPredictions(req, res);
 
-      await cuacaController.getForecastData(req, res);
-
-      expect(CuacaModel.getForecastData).toHaveBeenCalledWith(-7.7956, 110.3695, expect.any(Function));
-      expect(CuacaModel.updateUserLocation).toHaveBeenCalledWith(-7.7956, 110.3695, 1, expect.any(Function));
-      // Note: The original controller logs the error but still sends the forecast data.
-      // So, we expect json to be called with mockData, and status 500 is not explicitly sent from the updateUserLocation error block.
-      expect(res.json).toHaveBeenCalledWith(mockData);
-    });
-  });
-
-  describe('getForecastDataNT', () => {
-    test('should return forecast data based on query params successfully', async () => {
-      const req = mockRequest({}, {}, { latitude: -7.7956, longitude: 110.3695 });
-      const res = mockResponse();
-      const mockData = { weatherData: [['forecast_data_nt']] };
-
-      CuacaModel.getForecastData.mockImplementationOnce((lat, lon, callback) => {
-        callback(null, mockData);
-      });
-
-      await cuacaController.getForecastDataNT(req, res);
-
-      expect(CuacaModel.getForecastData).toHaveBeenCalledWith('-7.7956', '110.3695', expect.any(Function));
-      expect(res.json).toHaveBeenCalledWith(mockData);
-    });
-
-    test('should return 500 if fetching forecast data NT fails', async () => {
-      const req = mockRequest({}, {}, { latitude: -7.7956, longitude: 110.3695 });
-      const res = mockResponse();
-
-      CuacaModel.getForecastData.mockImplementationOnce((lat, lon, callback) => {
-        callback(new Error('API error NT'), null);
-      });
-
-      await cuacaController.getForecastDataNT(req, res);
-
-      expect(CuacaModel.getForecastData).toHaveBeenCalledWith('-7.7956', '110.3695', expect.any(Function));
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Error: Fetching data error' });
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Error: Fetching data error",
+      });
     });
   });
 
-  describe('getWarningData', () => {
-    test('should return warning data successfully', async () => {
-      const req = mockRequest();
-      const res = mockResponse();
-      const mockData = { warnings: ['warning1', 'warning2'] };
+  describe("getCropRecommendation", () => {
+    it("should fetch crop recommendations successfully", async () => {
+      req.query = { label: "Rice" };
+      const mockRecommendation = { recommendation: "Plant in dry season" };
+      CuacaModel.fetchCropRecommendations.mockResolvedValue(mockRecommendation);
 
-      CuacaModel.getWarningData.mockImplementationOnce((callback) => {
-        callback(null, mockData);
-      });
+      await getCropRecommendation(req, res);
 
-      await cuacaController.getWarningData(req, res);
-
-      expect(CuacaModel.getWarningData).toHaveBeenCalledWith(expect.any(Function));
-      expect(res.json).toHaveBeenCalledWith(mockData);
+      expect(CuacaModel.fetchCropRecommendations).toHaveBeenCalledWith("Rice");
+      expect(res.json).toHaveBeenCalledWith(mockRecommendation);
     });
 
-    test('should return 500 if fetching warning data fails', async () => {
-      const req = mockRequest();
-      const res = mockResponse();
-
-      CuacaModel.getWarningData.mockImplementationOnce((callback) => {
-        callback(new Error('Warning API error'), null);
-      });
-
-      await cuacaController.getWarningData(req, res);
-
-      expect(CuacaModel.getWarningData).toHaveBeenCalledWith(expect.any(Function));
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Error: Fetching data error' });
-    });
-  });
-
-  describe('getCropPredictions', () => {
-    test('should return crop predictions successfully', async () => {
-      const req = mockRequest({ provinsi: 'Jawa Tengah', latitude: -7.7956, longitude: 110.3695 });
-      const res = mockResponse();
-      const mockResult = { predictions: ['corn', 'rice'] };
-
-      CuacaModel.fetchCropPredictions.mockImplementationOnce((params, callback) => {
-        callback(null, mockResult);
-      });
-
-      await cuacaController.getCropPredictions(req, res);
-
-      expect(CuacaModel.fetchCropPredictions).toHaveBeenCalledWith(
-        { provinsi: 'Jawa Tengah', latitude: -7.7956, longitude: 110.3695, defaultProvinsi: 'DEFAULT_PROVINSI_VALUE' },
-        expect.any(Function)
+    it("should handle errors by returning a 500 status", async () => {
+      req.query = { label: "Rice" };
+      CuacaModel.fetchCropRecommendations.mockRejectedValue(
+        new Error("Fetch failed")
       );
-      expect(res.json).toHaveBeenCalledWith(mockResult);
-    });
 
-    test('should return 500 if fetching crop predictions fails', async () => {
-      const req = mockRequest({ provinsi: 'Jawa Tengah', latitude: -7.7956, longitude: 110.3695 });
-      const res = mockResponse();
+      await getCropRecommendation(req, res);
 
-      CuacaModel.fetchCropPredictions.mockImplementationOnce((params, callback) => {
-        callback(new Error('Prediction API error'), null);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Error: Fetching data error",
       });
+    });
+  });
 
-      await cuacaController.getCropPredictions(req, res);
+  describe("getForecastWeekly", () => {
+    it("should fetch weekly forecast data successfully", async () => {
+      req.query = { latitude: "-7.7", longitude: "110.4" };
+      const mockWeeklyForecast = [{ day: "Tuesday", temp: 28 }];
+      CuacaModel.fetchWeeklyForecast.mockResolvedValue(mockWeeklyForecast);
 
-      expect(CuacaModel.fetchCropPredictions).toHaveBeenCalledWith(
-        { provinsi: 'Jawa Tengah', latitude: -7.7956, longitude: 110.3695, defaultProvinsi: 'DEFAULT_PROVINSI_VALUE' },
-        expect.any(Function)
+      await getForecastWeekly(req, res);
+
+      expect(CuacaModel.fetchWeeklyForecast).toHaveBeenCalledWith(
+        "-7.7",
+        "110.4"
       );
+      expect(res.json).toHaveBeenCalledWith(mockWeeklyForecast);
+    });
+
+    it("should handle errors by returning a 500 status", async () => {
+      req.query = { latitude: "-7.7", longitude: "110.4" };
+      CuacaModel.fetchWeeklyForecast.mockRejectedValue(
+        new Error("Fetch failed")
+      );
+
+      await getForecastWeekly(req, res);
+
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Error: Fetching data error' });
-    });
-  });
-
-  describe('getCropRecommendation', () => {
-    test('should return crop recommendations successfully', async () => {
-      const req = mockRequest({ label: 'rice' });
-      const res = mockResponse();
-      const mockResult = { recommendations: ['variety_a', 'variety_b'] };
-
-      CuacaModel.fetchCropRecommendations.mockImplementationOnce((label, callback) => {
-        callback(null, mockResult);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Error: Fetching data error",
       });
-
-      await cuacaController.getCropRecommendation(req, res);
-
-      expect(CuacaModel.fetchCropRecommendations).toHaveBeenCalledWith('rice', expect.any(Function));
-      expect(res.json).toHaveBeenCalledWith(mockResult);
-    });
-
-    test('should return 500 if fetching crop recommendations fails', async () => {
-      const req = mockRequest({ label: 'rice' });
-      const res = mockResponse();
-
-      CuacaModel.fetchCropRecommendations.mockImplementationOnce((label, callback) => {
-        callback(new Error('Recommendation API error'), null);
-      });
-
-      await cuacaController.getCropRecommendation(req, res);
-
-      expect(CuacaModel.fetchCropRecommendations).toHaveBeenCalledWith('rice', expect.any(Function));
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Error: Fetching data error' });
-    });
-  });
-
-  describe('getForecastWeekly', () => {
-    test('should return weekly forecast successfully', async () => {
-      const req = mockRequest({ latitude: -7.7956, longitude: 110.3695 });
-      const res = mockResponse();
-      const mockData = { weeklyForecast: ['day1', 'day2'] };
-
-      CuacaModel.fetchWeeklyForecast.mockImplementationOnce((lat, lon, callback) => {
-        callback(null, mockData);
-      });
-
-      await cuacaController.getForecastWeekly(req, res);
-
-      expect(CuacaModel.fetchWeeklyForecast).toHaveBeenCalledWith(-7.7956, 110.3695, expect.any(Function));
-      expect(res.json).toHaveBeenCalledWith(mockData);
-    });
-
-    test('should return 500 if fetching weekly forecast fails', async () => {
-      const req = mockRequest({ latitude: -7.7956, longitude: 110.3695 });
-      const res = mockResponse();
-
-      CuacaModel.fetchWeeklyForecast.mockImplementationOnce((lat, lon, callback) => {
-        callback(new Error('Weekly forecast API error'), null);
-      });
-
-      await cuacaController.getForecastWeekly(req, res);
-
-      expect(CuacaModel.fetchWeeklyForecast).toHaveBeenCalledWith(-7.7956, 110.3695, expect.any(Function));
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Error: Fetching data error' });
     });
   });
 });

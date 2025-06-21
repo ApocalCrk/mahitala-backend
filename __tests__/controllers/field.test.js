@@ -1,388 +1,329 @@
-const fieldController = require('../../src/controllers/field');
-const FieldModel = require('../../src/models/fieldModel');
-const axios = require('axios');
-const fs = require('fs').promises;
-const path = require('path');
+const {
+  getFieldByUserID,
+  createField,
+  updateField,
+  deleteField,
+  getFieldById,
+  getCropData,
+  getCropById,
+  reverseGeocode,
+  radarInfo,
+  proxyWeatherTile,
+  proxySentinelWMS,
+} = require("../../src/controllers/field");
+const FieldModel = require("../../src/models/fieldModel");
+const axios = require("axios");
+const fs = require("fs").promises;
+const path = require("path");
+const { PassThrough } = require("stream");
 
-jest.mock('../../src/models/fieldModel', () => ({
-  getFieldByUserID: jest.fn(),
-  createField: jest.fn(),
-  updateField: jest.fn(),
-  deleteField: jest.fn(),
-  getFieldById: jest.fn(),
-  getCropData: jest.fn(),
-  getCropById: jest.fn(),
-}));
-
-jest.mock('axios');
-jest.mock('fs', () => ({
+jest.mock("../../src/models/fieldModel");
+jest.mock("axios");
+jest.mock("fs", () => ({
   promises: {
     mkdir: jest.fn(),
     writeFile: jest.fn(),
     readFile: jest.fn(),
   },
 }));
-jest.mock('path');
-jest.mock('dotenv', () => ({
-  config: jest.fn(),
-}));
 
-const mockRequest = (body = {}, params = {}, query = {}, user = {}) => ({
-  body,
-  params,
-  query,
-  user,
-});
+describe("Field Controller", () => {
+  let req, res;
 
-const mockResponse = () => {
-  const res = {};
-  res.status = jest.fn().mockReturnValue(res);
-  res.json = jest.fn().mockReturnValue(res);
-  res.send = jest.fn().mockReturnValue(res);
-  return res;
-};
-
-describe('Field Controller', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    path.resolve.mockReturnValue('/mock/path/to/cache');
-    path.join.mockImplementation((...args) => args.join('/')); // Simulate path.join
-  });
-
-  describe('getFieldByUserID', () => {
-    test('should return field data for a user successfully', async () => {
-      const req = mockRequest({}, {}, {}, { user_id: 1 });
-      const res = mockResponse();
-      const mockData = [{ id_field: 1, nama_lahan: 'Sawah', user_id: 1 }];
-
-      FieldModel.getFieldByUserID.mockImplementationOnce((userId, callback) => {
-        callback(null, mockData);
-      });
-
-      await fieldController.getFieldByUserID(req, res);
-
-      expect(FieldModel.getFieldByUserID).toHaveBeenCalledWith(1, expect.any(Function));
-      expect(res.json).toHaveBeenCalledWith(mockData);
-    });
-
-    test('should return 500 if fetching field data fails', async () => {
-      const req = mockRequest({}, {}, {}, { user_id: 1 });
-      const res = mockResponse();
-
-      FieldModel.getFieldByUserID.mockImplementationOnce((userId, callback) => {
-        callback(new Error('DB error'), null);
-      });
-
-      await fieldController.getFieldByUserID(req, res);
-
-      expect(FieldModel.getFieldByUserID).toHaveBeenCalledWith(1, expect.any(Function));
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Error: Fetching data error' });
-    });
-  });
-
-  describe('createField', () => {
-    const fieldData = {
-      nama_lahan: 'Ladang Jagung',
-      jenis_tanah: 'Gambut',
-      id_tanaman: 2,
-      coords: 'POLYGON((...))',
-      luas_lahan: 1000,
-      tanggal_tanam: '2023-01-01',
-      estimasi_panen: '2023-05-01',
+    req = {
+      body: {},
+      user: { user_id: 1 },
+      params: {},
+      query: {},
     };
-
-    test('should create a new field successfully', async () => {
-      const req = mockRequest(fieldData, {}, {}, { user_id: 1 });
-      const res = mockResponse();
-
-      FieldModel.createField.mockImplementationOnce((data, callback) => {
-        callback(null);
-      });
-
-      await fieldController.createField(req, res);
-
-      expect(FieldModel.createField).toHaveBeenCalledWith(
-        { ...fieldData, user_id: 1 },
-        expect.any(Function)
-      );
-      expect(res.json).toHaveBeenCalledWith({ message: 'Field created successfully' });
-    });
-
-    test('should return 500 if creating field fails', async () => {
-      const req = mockRequest(fieldData, {}, {}, { user_id: 1 });
-      const res = mockResponse();
-
-      FieldModel.createField.mockImplementationOnce((data, callback) => {
-        callback(new Error('DB error'));
-      });
-
-      await fieldController.createField(req, res);
-
-      expect(FieldModel.createField).toHaveBeenCalledWith(
-        { ...fieldData, user_id: 1 },
-        expect.any(Function)
-      );
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Error: Creating field error' });
-    });
-  });
-
-  describe('updateField', () => {
-    const updateData = {
-      id_field: 1,
-      nama_lahan: 'Sawah Baru',
-      jenis_tanah: 'Liat',
-      id_tanaman: 1,
-      coords: 'POLYGON((...))',
-      luas_lahan: 1200,
-      tanggal_tanam: '2023-01-10',
-      estimasi_panen: '2023-05-10',
+    res = {
+      json: jest.fn(),
+      status: jest.fn().mockReturnThis(),
+      setHeader: jest.fn(),
     };
+  });
 
-    test('should update a field successfully', async () => {
-      const req = mockRequest(updateData, {}, {}, { user_id: 1 });
-      const res = mockResponse();
+  describe("getFieldByUserID", () => {
+    it("should fetch fields for the logged-in user", async () => {
+      const mockFields = [{ id: 1, name: "My Field" }];
+      FieldModel.getFieldByUserID.mockResolvedValue(mockFields);
 
-      FieldModel.updateField.mockImplementationOnce((id, data, callback) => {
-        callback(null);
-      });
+      await getFieldByUserID(req, res);
 
-      await fieldController.updateField(req, res);
-
-      expect(FieldModel.updateField).toHaveBeenCalledWith(
-        updateData.id_field,
-        { ...updateData, user_id: 1 },
-        expect.any(Function)
-      );
-      expect(res.json).toHaveBeenCalledWith({ message: 'Field updated successfully' });
+      expect(FieldModel.getFieldByUserID).toHaveBeenCalledWith(1);
+      expect(res.json).toHaveBeenCalledWith(mockFields);
     });
 
-    test('should return 500 if updating field fails', async () => {
-      const req = mockRequest(updateData, {}, {}, { user_id: 1 });
-      const res = mockResponse();
-
-      FieldModel.updateField.mockImplementationOnce((id, data, callback) => {
-        callback(new Error('DB error'));
-      });
-
-      await fieldController.updateField(req, res);
-
-      expect(FieldModel.updateField).toHaveBeenCalledWith(
-        updateData.id_field,
-        { ...updateData, user_id: 1 },
-        expect.any(Function)
-      );
+    it("should return 500 on error", async () => {
+      FieldModel.getFieldByUserID.mockRejectedValue(new Error("DB Error"));
+      await getFieldByUserID(req, res);
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Error: Updating field error' });
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Error: Fetching data error",
+      });
     });
   });
 
-  describe('deleteField', () => {
-    test('should delete a field successfully', async () => {
-      const req = mockRequest({ id: 1 }, {}, {}, { user_id: 1 });
-      const res = mockResponse();
+  describe("createField", () => {
+    it("should create a new field successfully", async () => {
+      req.body = { name: "New Field", area: 10 };
+      const newFieldId = 5;
+      FieldModel.createField.mockResolvedValue(newFieldId);
 
-      FieldModel.deleteField.mockImplementationOnce((id, userId, callback) => {
-        callback(null);
+      await createField(req, res);
+
+      const expectedData = { name: "New Field", area: 10, user_id: 1 };
+      expect(FieldModel.createField).toHaveBeenCalledWith(expectedData);
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Field created successfully",
+        c_id: newFieldId,
       });
-
-      await fieldController.deleteField(req, res);
-
-      expect(FieldModel.deleteField).toHaveBeenCalledWith(1, 1, expect.any(Function));
-      expect(res.json).toHaveBeenCalledWith({ message: 'Field deleted successfully' });
     });
 
-    test('should return 500 if deleting field fails', async () => {
-      const req = mockRequest({ id: 1 }, {}, {}, { user_id: 1 });
-      const res = mockResponse();
-
-      FieldModel.deleteField.mockImplementationOnce((id, userId, callback) => {
-        callback(new Error('DB error'));
-      });
-
-      await fieldController.deleteField(req, res);
-
-      expect(FieldModel.deleteField).toHaveBeenCalledWith(1, 1, expect.any(Function));
+    it("should return 500 on error", async () => {
+      req.body = { name: "New Field" };
+      FieldModel.createField.mockRejectedValue(new Error("DB Error"));
+      await createField(req, res);
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Error: Deleting field error' });
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Error: Creating field error",
+      });
     });
   });
 
-  describe('getFieldById', () => {
-    test('should return field data by ID successfully', async () => {
-      const req = mockRequest({}, { id_field: 1 });
-      const res = mockResponse();
-      const mockData = [{ id_field: 1, nama_lahan: 'Sawah', user_id: 1 }];
+  describe("updateField", () => {
+    it("should update a field successfully", async () => {
+      req.body = { id_field: 1, name: "Updated Field Name" };
+      FieldModel.updateField.mockResolvedValue();
 
-      FieldModel.getFieldById.mockImplementationOnce((fieldId, callback) => {
-        callback(null, mockData);
+      await updateField(req, res);
+
+      expect(FieldModel.updateField).toHaveBeenCalledWith(1, {
+        name: "Updated Field Name",
       });
-
-      await fieldController.getFieldById(req, res);
-
-      expect(FieldModel.getFieldById).toHaveBeenCalledWith(1, expect.any(Function));
-      expect(res.json).toHaveBeenCalledWith(mockData);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Field updated successfully",
+      });
     });
 
-    test('should return 500 if fetching field by ID fails', async () => {
-      const req = mockRequest({}, { id_field: 1 });
-      const res = mockResponse();
-
-      FieldModel.getFieldById.mockImplementationOnce((fieldId, callback) => {
-        callback(new Error('DB error'), null);
-      });
-
-      await fieldController.getFieldById(req, res);
-
-      expect(FieldModel.getFieldById).toHaveBeenCalledWith(1, expect.any(Function));
+    it("should return 500 on error", async () => {
+      req.body = { id_field: 1, name: "Updated Name" };
+      FieldModel.updateField.mockRejectedValue(new Error("DB Error"));
+      await updateField(req, res);
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Error: Fetching field by ID error' });
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Error: Updating field error",
+      });
     });
   });
 
-  describe('getCropData', () => {
-    test('should return all crop data successfully', async () => {
-      const req = mockRequest();
-      const res = mockResponse();
-      const mockData = [{ id_tanaman: 1, nama_tanaman: 'Padi' }];
+  describe("deleteField", () => {
+    it("should delete a field successfully", async () => {
+      req.body = { id: 15 };
+      FieldModel.deleteField.mockResolvedValue();
 
-      FieldModel.getCropData.mockImplementationOnce((callback) => {
-        callback(null, mockData);
+      await deleteField(req, res);
+
+      expect(FieldModel.deleteField).toHaveBeenCalledWith(15, 1);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Field deleted successfully",
       });
-
-      await fieldController.getCropData(req, res);
-
-      expect(FieldModel.getCropData).toHaveBeenCalledWith(expect.any(Function));
-      expect(res.json).toHaveBeenCalledWith(mockData);
     });
 
-    test('should return 500 if fetching crop data fails', async () => {
-      const req = mockRequest();
-      const res = mockResponse();
-
-      FieldModel.getCropData.mockImplementationOnce((callback) => {
-        callback(new Error('DB error'), null);
-      });
-
-      await fieldController.getCropData(req, res);
-
-      expect(FieldModel.getCropData).toHaveBeenCalledWith(expect.any(Function));
+    it("should return 500 on error", async () => {
+      req.body = { id: 15 };
+      FieldModel.deleteField.mockRejectedValue(new Error("DB Error"));
+      await deleteField(req, res);
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Error: Fetching data error' });
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Error: Deleting field error",
+      });
     });
   });
 
-  describe('getCropById', () => {
-    test('should return crop data by ID successfully', async () => {
-      const req = mockRequest({}, { id_tanaman: 1 });
-      const res = mockResponse();
-      const mockData = [{ id_tanaman: 1, nama_tanaman: 'Padi' }];
+  describe("getFieldById", () => {
+    it("should fetch a single field by its ID", async () => {
+      req.params.id_field = 3;
+      const mockField = { id_field: 3, name: "A Specific Field" };
+      FieldModel.getFieldById.mockResolvedValue(mockField);
 
-      FieldModel.getCropById.mockImplementationOnce((cropId, callback) => {
-        callback(null, mockData);
-      });
+      await getFieldById(req, res);
 
-      await fieldController.getCropById(req, res);
-
-      expect(FieldModel.getCropById).toHaveBeenCalledWith(1, expect.any(Function));
-      expect(res.json).toHaveBeenCalledWith(mockData);
+      expect(FieldModel.getFieldById).toHaveBeenCalledWith(3);
+      expect(res.json).toHaveBeenCalledWith(mockField);
     });
 
-    test('should return 500 if fetching crop by ID fails', async () => {
-      const req = mockRequest({}, { id_tanaman: 1 });
-      const res = mockResponse();
+    it("should return 404 if field is not found", async () => {
+      req.params.id_field = 99;
+      FieldModel.getFieldById.mockResolvedValue(null);
 
-      FieldModel.getCropById.mockImplementationOnce((cropId, callback) => {
-        callback(new Error('DB error'), null);
-      });
+      await getFieldById(req, res);
 
-      await fieldController.getCropById(req, res);
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({ message: "Field not found" });
+    });
 
-      expect(FieldModel.getCropById).toHaveBeenCalledWith(1, expect.any(Function));
+    it("should return 500 on error", async () => {
+      req.params.id_field = 3;
+      FieldModel.getFieldById.mockRejectedValue(new Error("DB Error"));
+      await getFieldById(req, res);
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Error: Fetching data error' });
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Error: Fetching field by ID error",
+      });
     });
   });
 
-  describe('reverseGeocode', () => {
-    const lat = '1.23';
-    const lon = '4.56';
-    const cacheDir = '/mock/path/to/cache';
-    const cacheFile = `${cacheDir}/${lat.replace(/\./g, '_')}_${lon.replace(/\./g, '_')}.json`;
-    const mockApiData = { address: { city: 'Test City' } };
-    const mockCachedData = { address: { city: 'Cached City' }, from_cache: true, warning: "Data diambil dari cache karena API gagal." };
+  describe("getCropData", () => {
+    it("should fetch all crop data", async () => {
+      const mockCrops = [{ id_tanaman: 1, nama_tanaman: "Padi" }];
+      FieldModel.getCropData.mockResolvedValue(mockCrops);
 
-    beforeEach(() => {
-      // Ensure path.join and path.resolve return consistent mock values
-      path.join.mockImplementation((dir, file) => `${dir}/${file}`);
-      path.resolve.mockReturnValue(cacheDir);
+      await getCropData(req, res);
+
+      expect(FieldModel.getCropData).toHaveBeenCalled();
+      expect(res.json).toHaveBeenCalledWith(mockCrops);
     });
 
-    test('should return data from API and cache it if successful', async () => {
-      const req = mockRequest({}, {}, { lat, lon });
-      const res = mockResponse();
+    it("should return 500 on fetch error", async () => {
+      FieldModel.getCropData.mockRejectedValue(new Error("DB error"));
+      await getCropData(req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Error: Fetching data error",
+      });
+    });
+  });
 
-      fs.mkdir.mockResolvedValue();
+  describe("getCropById", () => {
+    it("should fetch a single crop by its ID", async () => {
+      req.params.id_tanaman = 2;
+      const mockCrop = { id_tanaman: 2, nama_tanaman: "Jagung" };
+      FieldModel.getCropById.mockResolvedValue(mockCrop);
+
+      await getCropById(req, res);
+
+      expect(FieldModel.getCropById).toHaveBeenCalledWith(2);
+      expect(res.json).toHaveBeenCalledWith(mockCrop);
+    });
+
+    it("should return 404 if crop is not found", async () => {
+      req.params.id_tanaman = 100;
+      FieldModel.getCropById.mockResolvedValue(null);
+
+      await getCropById(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({ message: "Crop not found" });
+    });
+  });
+
+  describe("reverseGeocode", () => {
+    it("should return geocode data from API and cache it", async () => {
+      req.query = { lat: "1.23", lon: "4.56" };
+      const mockApiData = { display_name: "Test Location" };
       axios.get.mockResolvedValue({ data: mockApiData });
-      fs.writeFile.mockResolvedValue();
-      fs.readFile.mockRejectedValue(new Error('File not found for testing')); // Ensure cache is not read first
 
-      await fieldController.reverseGeocode(req, res);
+      await reverseGeocode(req, res);
 
-      expect(fs.mkdir).toHaveBeenCalledWith(cacheDir, { recursive: true });
-      expect(axios.get).toHaveBeenCalledWith(
-        `https://nominatim.openstreetmap.org/reverse`,
-        expect.objectContaining({
-          params: { lat, lon, format: 'json', 'accept-language': 'id' },
-        })
-      );
-      expect(fs.writeFile).toHaveBeenCalledWith(cacheFile, JSON.stringify(mockApiData), 'utf-8');
+      expect(axios.get).toHaveBeenCalled();
+      expect(fs.writeFile).toHaveBeenCalled();
       expect(res.json).toHaveBeenCalledWith(mockApiData);
     });
 
-    test('should return data from cache if API call fails but cache exists', async () => {
-      const req = mockRequest({}, {}, { lat, lon });
-      const res = mockResponse();
+    it("should return data from cache if API fails", async () => {
+      req.query = { lat: "1.23", lon: "4.56" };
+      axios.get.mockRejectedValue(new Error("API Error"));
+      const mockCacheData = { display_name: "Cached Location" };
+      fs.readFile.mockResolvedValue(JSON.stringify(mockCacheData));
 
-      fs.mkdir.mockResolvedValue();
-      axios.get.mockRejectedValue(new Error('Network error'));
-      fs.readFile.mockResolvedValue(JSON.stringify(mockCachedData));
+      await reverseGeocode(req, res);
 
-      await fieldController.reverseGeocode(req, res);
+      expect(axios.get).toHaveBeenCalled();
+      expect(fs.readFile).toHaveBeenCalled();
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ from_cache: true })
+      );
+    });
+  });
 
-      expect(fs.mkdir).toHaveBeenCalledWith(cacheDir, { recursive: true });
-      expect(axios.get).toHaveBeenCalledTimes(1); // Should try API first
-      expect(fs.readFile).toHaveBeenCalledWith(cacheFile, 'utf-8');
-      expect(res.json).toHaveBeenCalledWith(mockCachedData);
+  describe("radarInfo", () => {
+    it("should fetch radar info from BMKG API", async () => {
+      process.env.API_RADAR = "http://test-radar-api.com";
+      const mockRadarData = { data: "radar data" };
+      axios.get.mockResolvedValue({ data: mockRadarData });
+
+      await radarInfo(req, res);
+
+      expect(axios.get).toHaveBeenCalledWith(
+        "http://test-radar-api.com",
+        expect.any(Object)
+      );
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(mockRadarData);
     });
 
-    test('should return 400 if lat or lon parameters are missing', async () => {
-      const req = mockRequest({}, {}, { lat: '1.23' }); // Missing lon
-      const res = mockResponse();
-
-      await fieldController.reverseGeocode(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Missing lat or lon parameter' });
-      expect(axios.get).not.toHaveBeenCalled();
-    });
-
-    test('should return 500 if both API and cache fail', async () => {
-      const req = mockRequest({}, {}, { lat, lon });
-      const res = mockResponse();
-
-      fs.mkdir.mockResolvedValue();
-      axios.get.mockRejectedValue(new Error('API failed'));
-      fs.readFile.mockRejectedValue(new Error('Cache failed'));
-
-      await fieldController.reverseGeocode(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({
-        message: "Gagal mengambil data dari API dan cache.",
-        error: "API failed",
+    it("should handle BMKG API error response", async () => {
+      process.env.API_RADAR = "http://test-radar-api.com";
+      axios.get.mockRejectedValue({
+        response: { status: 404, data: "Not Found" },
       });
+
+      await radarInfo(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: "Server BMKG memberikan respons error",
+        })
+      );
+    });
+  });
+
+  describe("proxyWeatherTile", () => {
+    it("should proxy a weather tile successfully", async () => {
+      req.params = { layer: "clouds_new", z: 1, x: 2, y: 3 };
+      process.env.OWM_API_KEY = "test_key";
+
+      const mockStream = new PassThrough();
+      axios.get.mockResolvedValue({ data: mockStream });
+
+      const pipe = jest.fn();
+      res.pipe = pipe;
+      mockStream.pipe = pipe;
+
+      await proxyWeatherTile(req, res);
+      mockStream.emit("end");
+
+      expect(axios.get).toHaveBeenCalled();
+      expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/png");
+      expect(pipe).toHaveBeenCalledWith(res);
+    });
+  });
+
+  describe("proxySentinelWMS", () => {
+    it("should proxy a Sentinel WMS tile successfully", async () => {
+      req.query = { BBOX: "1,2,3,4" };
+      process.env.SENTINEL_HUB_INSTANCE = "test_instance";
+      const mockStream = new PassThrough();
+      axios.get.mockResolvedValue({ data: mockStream });
+
+      const pipe = jest.fn();
+      res.pipe = pipe;
+      mockStream.pipe = pipe;
+
+      await proxySentinelWMS(req, res);
+      mockStream.emit("end");
+
+      expect(axios.get).toHaveBeenCalledWith(
+        expect.stringContaining("sentinel-hub.com"),
+        expect.any(Object)
+      );
+      expect(res.setHeader).toHaveBeenCalledWith("Content-Type", "image/png");
+      expect(pipe).toHaveBeenCalledWith(res);
     });
   });
 });

@@ -1,254 +1,207 @@
-const authController = require('../../src/controllers/auth');
-const AuthModel = require('../../src/models/authModel');
-const jwt = require('jsonwebtoken');
-const dotenv = require('dotenv');
+const { register, login, checkUser } = require("../../src/controllers/auth");
+const AuthModel = require("../../src/models/authModel");
+const jwt = require("jsonwebtoken");
 
-dotenv.config();
+jest.mock("../../src/models/authModel");
+jest.mock("jsonwebtoken");
 
-// Mock AuthModel
-jest.mock('../../src/models/authModel', () => ({
-  isUsernameTaken: jest.fn(),
-  createUser: jest.fn(),
-  getUserByUsername: jest.fn(),
-  isTokenValid: jest.fn(),
-}));
+describe("Auth Controller", () => {
+  let req, res;
 
-// Mock jsonwebtoken
-jest.mock('jsonwebtoken', () => ({
-  sign: jest.fn(),
-  verify: jest.fn(),
-}));
-
-// Mock dotenv config
-jest.mock('dotenv', () => ({
-  config: jest.fn(),
-}));
-
-const mockRequest = (body = {}, params = {}, query = {}, user = {}) => ({
-  body,
-  params,
-  query,
-  user,
-});
-
-const mockResponse = () => {
-  const res = {};
-  res.status = jest.fn().mockReturnValue(res);
-  res.json = jest.fn().mockReturnValue(res);
-  res.send = jest.fn().mockReturnValue(res);
-  return res;
-};
-
-describe('Auth Controller', () => {
   beforeEach(() => {
-    // Reset mocks before each test
     jest.clearAllMocks();
-    process.env.JWT_SECRET = 'test_secret'; // Set a dummy secret for testing
+
+    req = {
+      body: {},
+      user: {},
+    };
+    res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+    };
   });
 
-  describe('register', () => {
-    test('should register a new user successfully', async () => {
-      const req = mockRequest({ username: 'testuser', token: 'dummytoken' });
-      const res = mockResponse();
+  describe("register", () => {
+    it("should register a new user successfully", async () => {
+      req.body = { username: "newUser", token: "someToken" };
+      const mockUser = { user_id: 1, username: "newUser", token: "someToken" };
+      const mockJwtToken = "mockJwtToken";
 
-      AuthModel.isUsernameTaken.mockImplementationOnce((username, callback) => {
-        callback(null, []); // Username not taken
+      AuthModel.isUsernameTaken.mockResolvedValue([]);
+      AuthModel.createUser.mockResolvedValue({ insertId: 1 });
+      jwt.sign.mockReturnValue(mockJwtToken);
+
+      await register(req, res);
+
+      expect(AuthModel.isUsernameTaken).toHaveBeenCalledWith("newUser");
+      expect(AuthModel.createUser).toHaveBeenCalledWith({
+        username: "newUser",
+        token: "someToken",
       });
-      AuthModel.createUser.mockImplementationOnce((user, callback) => {
-        callback(null, { insertId: 1 }); // User created successfully
-      });
-      jwt.sign.mockReturnValueOnce('mocked_jwt_token');
-
-      await authController.register(req, res);
-
-      expect(AuthModel.isUsernameTaken).toHaveBeenCalledWith('testuser', expect.any(Function));
-      expect(AuthModel.createUser).toHaveBeenCalledWith({ username: 'testuser', token: 'dummytoken' }, expect.any(Function));
-      expect(jwt.sign).toHaveBeenCalledWith({ user_id: 1, username: 'testuser', token: 'dummytoken' }, 'test_secret');
+      expect(jwt.sign).toHaveBeenCalledWith(mockUser, process.env.JWT_SECRET);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
-        message: 'Registrasi berhasil',
-        token: 'mocked_jwt_token',
+        message: "Registrasi berhasil",
+        token: mockJwtToken,
       });
     });
 
-    test('should return 400 if username is already taken', async () => {
-      const req = mockRequest({ username: 'existinguser', token: 'dummytoken' });
-      const res = mockResponse();
+    it("should return 400 if username is already taken", async () => {
+      req.body = { username: "existingUser", token: "someToken" };
 
-      AuthModel.isUsernameTaken.mockImplementationOnce((username, callback) => {
-        callback(null, [{ username: 'existinguser' }]); // Username taken
-      });
+      AuthModel.isUsernameTaken.mockResolvedValue([
+        { username: "existingUser" },
+      ]);
 
-      await authController.register(req, res);
+      await register(req, res);
 
-      expect(AuthModel.isUsernameTaken).toHaveBeenCalledWith('existinguser', expect.any(Function));
-      expect(AuthModel.createUser).not.toHaveBeenCalled();
+      expect(AuthModel.isUsernameTaken).toHaveBeenCalledWith("existingUser");
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Username telah terdaftar' });
-    });
-
-    test('should return 500 if there is a database error when checking username', async () => {
-      const req = mockRequest({ username: 'testuser', token: 'dummytoken' });
-      const res = mockResponse();
-
-      AuthModel.isUsernameTaken.mockImplementationOnce((username, callback) => {
-        callback(new Error('DB error'), null);
-      });
-
-      await authController.register(req, res);
-
-      expect(AuthModel.isUsernameTaken).toHaveBeenCalledWith('testuser', expect.any(Function));
-      expect(AuthModel.createUser).not.toHaveBeenCalled();
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.send).toHaveBeenCalledWith(expect.any(Error));
-    });
-
-    test('should return 500 if there is a database error during user creation', async () => {
-      const req = mockRequest({ username: 'testuser', token: 'dummytoken' });
-      const res = mockResponse();
-
-      AuthModel.isUsernameTaken.mockImplementationOnce((username, callback) => {
-        callback(null, []);
-      });
-      AuthModel.createUser.mockImplementationOnce((user, callback) => {
-        callback(new Error('User creation error'), null);
-      });
-
-      await authController.register(req, res);
-
-      expect(AuthModel.isUsernameTaken).toHaveBeenCalledWith('testuser', expect.any(Function));
-      expect(AuthModel.createUser).toHaveBeenCalledWith({ username: 'testuser', token: 'dummytoken' }, expect.any(Function));
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Error: Creating user error' });
-    });
-  });
-
-  describe('login', () => {
-    test('should log in a user successfully', async () => {
-      const req = mockRequest({ username: 'testuser', token: 'validtoken' });
-      const res = mockResponse();
-
-      const mockUser = { user_id: 1, username: 'testuser', token: 'validtoken' };
-      AuthModel.getUserByUsername.mockImplementationOnce((username, callback) => {
-        callback(null, [mockUser]);
-      });
-      AuthModel.isTokenValid.mockReturnValueOnce(true);
-      jwt.sign.mockReturnValueOnce('mocked_jwt_token');
-
-      await authController.login(req, res);
-
-      expect(AuthModel.getUserByUsername).toHaveBeenCalledWith('testuser', expect.any(Function));
-      expect(AuthModel.isTokenValid).toHaveBeenCalledWith('validtoken', 'validtoken');
-      expect(jwt.sign).toHaveBeenCalledWith({ user_id: 1, username: 'testuser' }, 'test_secret');
       expect(res.json).toHaveBeenCalledWith({
-        message: 'Login berhasil',
-        token: 'mocked_jwt_token',
-        user: {
-          user_id: 1,
-          username: 'testuser',
-          token: 'validtoken',
-        },
+        message: "Username telah terdaftar",
       });
     });
 
-    test('should return 400 if username is not found', async () => {
-      const req = mockRequest({ username: 'nonexistentuser', token: 'dummytoken' });
-      const res = mockResponse();
+    it("should return 500 on a server error during registration", async () => {
+      req.body = { username: "newUser", token: "someToken" };
+      const errorMessage = "Database error";
 
-      AuthModel.getUserByUsername.mockImplementationOnce((username, callback) => {
-        callback(null, []);
-      });
+      AuthModel.isUsernameTaken.mockRejectedValue(new Error(errorMessage));
 
-      await authController.login(req, res);
+      await register(req, res);
 
-      expect(AuthModel.getUserByUsername).toHaveBeenCalledWith('nonexistentuser', expect.any(Function));
-      expect(AuthModel.isTokenValid).not.toHaveBeenCalled();
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Username tidak ditemukan' });
-    });
-
-    test('should return 400 if token is invalid', async () => {
-      const req = mockRequest({ username: 'testuser', token: 'invalidtoken' });
-      const res = mockResponse();
-
-      const mockUser = { user_id: 1, username: 'testuser', token: 'correcttoken' };
-      AuthModel.getUserByUsername.mockImplementationOnce((username, callback) => {
-        callback(null, [mockUser]);
-      });
-      AuthModel.isTokenValid.mockReturnValueOnce(false);
-
-      await authController.login(req, res);
-
-      expect(AuthModel.getUserByUsername).toHaveBeenCalledWith('testuser', expect.any(Function));
-      expect(AuthModel.isTokenValid).toHaveBeenCalledWith('invalidtoken', 'correcttoken');
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Token tidak valid' });
-    });
-
-    test('should return 500 if there is a database error when getting user', async () => {
-      const req = mockRequest({ username: 'testuser', token: 'dummytoken' });
-      const res = mockResponse();
-
-      AuthModel.getUserByUsername.mockImplementationOnce((username, callback) => {
-        callback(new Error('DB error'), null);
-      });
-
-      await authController.login(req, res);
-
-      expect(AuthModel.getUserByUsername).toHaveBeenCalledWith('testuser', expect.any(Function));
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.send).toHaveBeenCalledWith(expect.any(Error));
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Terjadi kesalahan pada server saat registrasi",
+      });
     });
   });
 
-  describe('checkUser', () => {
-    test('should return user details if user exists', async () => {
-      const req = mockRequest({}, {}, {}, { username: 'testuser' });
-      const res = mockResponse();
+  describe("login", () => {
+    it("should login a user successfully with a valid token", async () => {
+      req.body = { username: "testuser", token: "validToken" };
+      const mockUser = {
+        user_id: 1,
+        username: "testuser",
+        token: "storedToken",
+      };
+      const mockJwtToken = "mockJwtToken";
 
-      const mockUser = { user_id: 1, username: 'testuser', token: 'dummytoken' };
-      AuthModel.getUserByUsername.mockImplementationOnce((username, callback) => {
-        callback(null, [mockUser]);
+      AuthModel.getUserByUsername.mockResolvedValue([mockUser]);
+      AuthModel.isTokenValid.mockReturnValue(true);
+      jwt.sign.mockReturnValue(mockJwtToken);
+
+      await login(req, res);
+
+      expect(AuthModel.getUserByUsername).toHaveBeenCalledWith("testuser");
+      expect(AuthModel.isTokenValid).toHaveBeenCalledWith(
+        "validToken",
+        "storedToken"
+      );
+      expect(jwt.sign).toHaveBeenCalledWith(
+        { user_id: 1, username: "testuser" },
+        process.env.JWT_SECRET
+      );
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Login berhasil",
+        token: mockJwtToken,
       });
+    });
 
-      await authController.checkUser(req, res);
+    it("should return 400 if the username is not found", async () => {
+      req.body = { username: "nonexistent", token: "someToken" };
 
-      expect(AuthModel.getUserByUsername).toHaveBeenCalledWith('testuser', expect.any(Function));
+      AuthModel.getUserByUsername.mockResolvedValue([]);
+
+      await login(req, res);
+
+      expect(AuthModel.getUserByUsername).toHaveBeenCalledWith("nonexistent");
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Username tidak ditemukan",
+      });
+    });
+
+    it("should return 400 for an invalid token", async () => {
+      req.body = { username: "testuser", token: "invalidToken" };
+      const mockUser = {
+        user_id: 1,
+        username: "testuser",
+        token: "storedToken",
+      };
+
+      AuthModel.getUserByUsername.mockResolvedValue([mockUser]);
+      AuthModel.isTokenValid.mockReturnValue(false);
+
+      await login(req, res);
+
+      expect(AuthModel.getUserByUsername).toHaveBeenCalledWith("testuser");
+      expect(AuthModel.isTokenValid).toHaveBeenCalledWith(
+        "invalidToken",
+        "storedToken"
+      );
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ message: "Token tidak valid" });
+    });
+
+    it("should return 500 on a server error during login", async () => {
+      req.body = { username: "testuser", token: "someToken" };
+      const errorMessage = "Database error";
+
+      AuthModel.getUserByUsername.mockRejectedValue(new Error(errorMessage));
+
+      await login(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Terjadi kesalahan pada server saat login",
+      });
+    });
+  });
+
+  describe("checkUser", () => {
+    it("should retrieve user information successfully", async () => {
+      req.user = { username: "testuser" };
+      const mockUser = { user_id: 1, username: "testuser", token: "someToken" };
+
+      AuthModel.getUserByUsername.mockResolvedValue([mockUser]);
+
+      await checkUser(req, res);
+
+      expect(AuthModel.getUserByUsername).toHaveBeenCalledWith("testuser");
       expect(res.json).toHaveBeenCalledWith({
         user_id: 1,
-        username: 'testuser',
-        token: 'dummytoken',
+        username: "testuser",
+        token: "someToken",
       });
     });
 
-    test('should return 400 if username is not found', async () => {
-      const req = mockRequest({}, {}, {}, { username: 'nonexistentuser' });
-      const res = mockResponse();
+    it("should return 404 if the user is not found", async () => {
+      req.user = { username: "nonexistent" };
 
-      AuthModel.getUserByUsername.mockImplementationOnce((username, callback) => {
-        callback(null, []);
+      AuthModel.getUserByUsername.mockResolvedValue([]);
+
+      await checkUser(req, res);
+
+      expect(AuthModel.getUserByUsername).toHaveBeenCalledWith("nonexistent");
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Username tidak ditemukan",
       });
-
-      await authController.checkUser(req, res);
-
-      expect(AuthModel.getUserByUsername).toHaveBeenCalledWith('nonexistentuser', expect.any(Function));
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ message: 'Username tidak ditemukan' });
     });
 
-    test('should return 500 if there is a database error', async () => {
-      const req = mockRequest({}, {}, {}, { username: 'testuser' });
-      const res = mockResponse();
+    it("should return 500 on a server error", async () => {
+      req.user = { username: "testuser" };
+      const errorMessage = "Database error";
 
-      AuthModel.getUserByUsername.mockImplementationOnce((username, callback) => {
-        callback(new Error('DB error'), null);
-      });
+      AuthModel.getUserByUsername.mockRejectedValue(new Error(errorMessage));
 
-      await authController.checkUser(req, res);
+      await checkUser(req, res);
 
-      expect(AuthModel.getUserByUsername).toHaveBeenCalledWith('testuser', expect.any(Function));
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.send).toHaveBeenCalledWith(expect.any(Error));
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Terjadi kesalahan pada server",
+      });
     });
   });
 });

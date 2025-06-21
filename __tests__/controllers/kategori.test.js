@@ -1,145 +1,123 @@
-const kategoriController = require('../../src/controllers/kategori');
-const KategoriModel = require('../../src/models/kategoriModel');
+const {
+  getAllKategori,
+  getBestKategori,
+  getKategoriById,
+} = require("../../src/controllers/kategori");
+const KategoriModel = require("../../src/models/kategoriModel");
 
-jest.mock('../../src/models/kategoriModel', () => ({
-  getAllKategori: jest.fn(),
-  getBestKategori: jest.fn(),
-  getKategoriById: jest.fn(),
-}));
+jest.mock("../../src/models/kategoriModel");
 
-const mockRequest = (body = {}, params = {}, query = {}, user = {}) => ({
-  body,
-  params,
-  query,
-  user,
-});
+describe("Kategori Controller", () => {
+  let req, res;
 
-const mockResponse = () => {
-  const res = {};
-  res.status = jest.fn().mockReturnValue(res);
-  res.json = jest.fn().mockReturnValue(res);
-  res.send = jest.fn().mockReturnValue(res);
-  return res;
-};
-
-describe('Kategori Controller', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+
+    req = {
+      params: {},
+    };
+    res = {
+      json: jest.fn(),
+      status: jest.fn().mockReturnThis(),
+    };
   });
 
-  describe('getAllKategori', () => {
-    test('should return all categories successfully', async () => {
-      const req = mockRequest();
-      const res = mockResponse();
-      const mockResult = [{ id_kategori: 1, nama: 'Padi' }, { id_kategori: 2, nama: 'Jagung' }];
+  describe("getAllKategori", () => {
+    it("should fetch all categories and return them with a 200 status", async () => {
+      const mockKategori = [
+        { id: 1, nama: "Pupuk" },
+        { id: 2, nama: "Hama" },
+      ];
+      KategoriModel.getAllKategori.mockResolvedValue(mockKategori);
 
-      KategoriModel.getAllKategori.mockImplementationOnce((callback) => {
-        callback(null, mockResult);
-      });
+      await getAllKategori(req, res);
 
-      await kategoriController.getAllKategori(req, res);
-
-      expect(KategoriModel.getAllKategori).toHaveBeenCalledWith(expect.any(Function));
+      expect(KategoriModel.getAllKategori).toHaveBeenCalledTimes(1);
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.send).toHaveBeenCalledWith(mockResult);
+      expect(res.json).toHaveBeenCalledWith(mockKategori);
     });
 
-    test('should return 500 if fetching all categories fails', async () => {
-      const req = mockRequest();
-      const res = mockResponse();
+    it("should return a 500 status on a server error", async () => {
+      const errorMessage = "Database connection failed";
+      KategoriModel.getAllKategori.mockRejectedValue(new Error(errorMessage));
 
-      KategoriModel.getAllKategori.mockImplementationOnce((callback) => {
-        callback(new Error('DB error'), null);
-      });
+      await getAllKategori(req, res);
 
-      await kategoriController.getAllKategori(req, res);
-
-      expect(KategoriModel.getAllKategori).toHaveBeenCalledWith(expect.any(Function));
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.send).toHaveBeenCalledWith(expect.any(Error));
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Server error",
+        error: errorMessage,
+      });
     });
   });
 
-  describe('getBestKategori', () => {
-    test('should return best categories successfully', async () => {
-      const req = mockRequest();
-      const res = mockResponse();
-      const mockResult = [{ id_kategori: 1, nama: 'Padi', count: 10 }, { id_kategori: 3, nama: 'Sayuran', count: 7 }];
+  describe("getBestKategori", () => {
+    it("should fetch the best categories and return them with a 200 status", async () => {
+      const mockBestKategori = [
+        { id: 1, nama: "Pupuk", total_diskusi: 50 },
+        { id: 3, nama: "Tips & Trik", total_diskusi: 45 },
+      ];
+      KategoriModel.getBestKategori.mockResolvedValue(mockBestKategori);
 
-      KategoriModel.getBestKategori.mockImplementationOnce((callback) => {
-        callback(null, mockResult);
-      });
+      await getBestKategori(req, res);
 
-      await kategoriController.getBestKategori(req, res);
-
-      expect(KategoriModel.getBestKategori).toHaveBeenCalledWith(expect.any(Function));
+      expect(KategoriModel.getBestKategori).toHaveBeenCalledTimes(1);
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.send).toHaveBeenCalledWith(mockResult);
+      expect(res.json).toHaveBeenCalledWith(mockBestKategori);
     });
 
-    test('should return 500 if fetching best categories fails', async () => {
-      const req = mockRequest();
-      const res = mockResponse();
+    it("should return a 500 status on a server error", async () => {
+      const errorMessage = "Query failed";
+      KategoriModel.getBestKategori.mockRejectedValue(new Error(errorMessage));
 
-      KategoriModel.getBestKategori.mockImplementationOnce((callback) => {
-        callback(new Error('DB error'), null);
-      });
+      await getBestKategori(req, res);
 
-      await kategoriController.getBestKategori(req, res);
-
-      expect(KategoriModel.getBestKategori).toHaveBeenCalledWith(expect.any(Function));
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.send).toHaveBeenCalledWith(expect.any(Error));
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Server error",
+        error: errorMessage,
+      });
     });
   });
 
-  describe('getKategoriById', () => {
-    test('should return a category by ID successfully', async () => {
-      const req = mockRequest({}, { id: 1 });
-      const res = mockResponse();
-      const mockResult = [{ id_kategori: 1, nama: 'Padi' }];
+  describe("getKategoriById", () => {
+    it("should fetch a single category by ID and return it with a 200 status", async () => {
+      req.params.id = 1;
+      const mockKategori = { id: 1, nama: "Pupuk" };
+      KategoriModel.getKategoriById.mockResolvedValue(mockKategori);
 
-      KategoriModel.getKategoriById.mockImplementationOnce((id, callback) => {
-        callback(null, mockResult);
-      });
+      await getKategoriById(req, res);
 
-      await kategoriController.getKategoriById(req, res);
-
-      expect(KategoriModel.getKategoriById).toHaveBeenCalledWith(1, expect.any(Function));
+      expect(KategoriModel.getKategoriById).toHaveBeenCalledWith(1);
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.send).toHaveBeenCalledWith(mockResult);
+      expect(res.json).toHaveBeenCalledWith(mockKategori);
     });
 
-    test('should return 404 if category not found', async () => {
-      const req = mockRequest({}, { id: 99 });
-      const res = mockResponse();
-      const notFoundError = new Error('Kategori not found');
-      notFoundError.message = 'Kategori not found'; // Simulate how your model might return specific errors
+    it("should return a 404 status when the category is not found", async () => {
+      req.params.id = 99;
+      const errorMessage = "Kategori tidak ditemukan";
+      KategoriModel.getKategoriById.mockRejectedValue(new Error(errorMessage));
 
-      KategoriModel.getKategoriById.mockImplementationOnce((id, callback) => {
-        callback(notFoundError, null);
-      });
+      await getKategoriById(req, res);
 
-      await kategoriController.getKategoriById(req, res);
-
-      expect(KategoriModel.getKategoriById).toHaveBeenCalledWith(99, expect.any(Function));
+      expect(KategoriModel.getKategoriById).toHaveBeenCalledWith(99);
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.send).toHaveBeenCalledWith({ message: 'Kategori not found' });
+      expect(res.json).toHaveBeenCalledWith({ message: errorMessage });
     });
 
-    test('should return 500 if fetching category by ID fails with generic error', async () => {
-      const req = mockRequest({}, { id: 1 });
-      const res = mockResponse();
+    it("should return a 500 status for other server errors", async () => {
+      req.params.id = 1;
+      const errorMessage = "A different server error";
+      KategoriModel.getKategoriById.mockRejectedValue(new Error(errorMessage));
 
-      KategoriModel.getKategoriById.mockImplementationOnce((id, callback) => {
-        callback(new Error('DB error'), null);
-      });
+      await getKategoriById(req, res);
 
-      await kategoriController.getKategoriById(req, res);
-
-      expect(KategoriModel.getKategoriById).toHaveBeenCalledWith(1, expect.any(Function));
+      expect(KategoriModel.getKategoriById).toHaveBeenCalledWith(1);
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.send).toHaveBeenCalledWith(expect.any(Error));
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Server error",
+        error: errorMessage,
+      });
     });
   });
 });
