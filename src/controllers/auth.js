@@ -46,12 +46,7 @@ const login = async (req, res) => {
       const jwtToken = jwt.sign(payload, JWT_SECRET);
       res.json({
         message: "Login berhasil",
-        token: jwtToken,
-        user: {
-          user_id: user.user_id,
-          username: user.username,
-          token: user.token,
-        },
+        token: jwtToken
       });
     } else {
       res.status(400).json({ message: "Token tidak valid" });
