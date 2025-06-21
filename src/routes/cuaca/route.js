@@ -1,14 +1,12 @@
 const express = require("express");
 const router = express.Router();
 
-// Impor semua controller yang dibutuhkan
 const { 
     getCuacaNow,
     getCropPredictions,
     getCropRecommendation,
     getForecastWeekly,
     getForecastData,
-    getForecastDataNT,
     getWarningData
 } = require('../../controllers/cuaca');
 
