@@ -3,6 +3,7 @@ const cron = require("node-cron");
 const db = require("../config/db/setup");
 const cuacaModel = require("../models/cuacaModel");
 const fieldModel = require("../models/fieldModel");
+const forumModel = require("../models/forumModel");
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
@@ -266,6 +267,64 @@ const automationEstimatedCrop = async () => {
   }
 };
 
+const notifyOnPriceDrop = async () => {
+  console.log("Running daily commodity price drop check at", new Date().toLocaleString());
+  try {
+    // 1. Dapatkan data komoditas dari model
+    const commodities = await forumModel.checkKomoditasHargaPasar();
+    if (!commodities || commodities.length === 0) {
+      console.log("Commodity data is not available.");
+      return;
+    }
+
+    // 2. Filter komoditas yang harganya turun
+    const droppedCommodities = commodities.filter(
+      (item) => item.gap_change === "down" && item.gap < 0
+    );
+
+    if (droppedCommodities.length === 0) {
+      console.log("No commodity prices dropped today. No notification sent.");
+      return;
+    }
+
+    const biggestDropCommodity = droppedCommodities.reduce((prev, current) => {
+      return prev.gap < current.gap ? prev : current;
+    });
+
+    const { nama, hari_ini, kemarin, satuan } = biggestDropCommodity;
+    const formatCurrency = (num) => new Intl.NumberFormat('id-ID').format(num);
+
+    const title = `Info Harga: ${nama} Turun!`;
+    const body = `Harga ${nama} turun dari Rp${formatCurrency(kemarin)} menjadi Rp${formatCurrency(hari_ini)} per ${satuan.replace('Rp./','').replace('Rp/','').trim()}. Pantau sekarang!`;
+
+    const sql = "SELECT fcm_token FROM users WHERE fcm_token IS NOT NULL";
+    db.query(sql, (err, users) => {
+      if (err) {
+        console.error("Error fetching users for commodity notification:", err);
+        return;
+      }
+      
+      if (users.length === 0) {
+        console.log("No users with FCM token found for commodity notification.");
+        return;
+      }
+
+      console.log(`Sending commodity price drop notification to ${users.length} users.`);
+      
+      const notificationPromises = users.map(user => 
+        generateData({ fcmToken: user.fcm_token, title, body })
+      );
+
+      Promise.all(notificationPromises)
+        .then(() => console.log("Successfully sent all commodity notifications."))
+        .catch(error => console.error("An error occurred while sending commodity notifications:", error));
+    });
+
+  } catch (error) {
+    console.error("Error in notifyOnPriceDrop job:", error.message);
+  }
+};
+
 cron.schedule("0 0 * * *", async () => {
   console.log("Running daily automation jobs at", new Date().toLocaleString());
   try {
@@ -294,6 +353,14 @@ cron.schedule("*/10 * * * *", async () => {
     } catch (error) {
         console.error("Error fetching BMKG data:", error);
     }
+});
+
+cron.schedule("0 8 * * *", async () => {
+  try {
+    await notifyOnPriceDrop();
+  } catch (error) {
+    console.error("Error running scheduled commodity price drop check:", error);
+  }
 });
 
 const registerToken = async (req, res) => {
