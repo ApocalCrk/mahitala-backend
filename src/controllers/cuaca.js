@@ -1,5 +1,3 @@
-// cuaca.js
-
 const CuacaModel = require('../models/cuacaModel');
 
 const getCuacaNow = async (req, res) => {

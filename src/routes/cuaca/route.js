@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const verifyTokenOptional = require("../../middleware/verifyTokenOptional");
 
 const { 
     getCuacaNow,
@@ -10,7 +11,7 @@ const {
     getWarningData
 } = require('../../controllers/cuaca');
 
-router.get('/cuaca/now', getCuacaNow);
+router.get('/cuaca/now', verifyTokenOptional, getCuacaNow);
 
 router.get('/cuaca/forecast', getForecastData);
 
