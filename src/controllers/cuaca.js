@@ -5,7 +5,9 @@ const getCuacaNow = async (req, res) => {
   try {
     const data = await CuacaModel.fetchWeatherData(latitude, longitude);
 
+    console.log(req.user);
     if (req.user) {
+      console.log(res.user);
       const user_id = req.user.user_id;
       CuacaModel.updateUserLocation(latitude, longitude, user_id).catch(err => {
         console.error("Error updating user location:", err);
