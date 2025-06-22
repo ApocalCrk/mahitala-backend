@@ -130,7 +130,6 @@ const WeatherModel = {
     const params = [latitude, longitude, userId];
     try {
       await queryPromise(sql, params);
-      console.log(`User location updated: ${latitude}, ${longitude} for user ID: ${userId}`);
     } catch (error) {
       console.error("Error updating user location:", error);
       throw error;
