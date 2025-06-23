@@ -328,13 +328,19 @@ const notifyOnPriceDrop = async () => {
 cron.schedule("0 0 * * *", async () => {
   console.log("Running daily automation jobs at", new Date().toLocaleString());
   try {
-    await Promise.all([
-      automationEstimatedCrop(),
-      processWeatherNotifications(getAverageWeather)
-    ]);
+    await automationEstimatedCrop();
     console.log("Daily jobs completed.");
   } catch (error) {
     console.error("Error in daily scheduled jobs:", error);
+  }
+});
+
+cron.schedule("0 0 * * *", async () => {
+  console.log("Running daily weather notifications at", new Date().toLocaleString());
+  try {
+    await processWeatherNotifications(getAverageWeather);
+  } catch (error) {
+    console.error("Error in daily weather notifications:", error);
   }
 });
 
