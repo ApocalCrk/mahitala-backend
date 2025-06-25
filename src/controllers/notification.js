@@ -361,7 +361,7 @@ cron.schedule("*/10 * * * *", async () => {
     }
 });
 
-cron.schedule("0 8 * * *", async () => {
+cron.schedule("0 9 * * *", async () => {
   try {
     await notifyOnPriceDrop();
   } catch (error) {
