@@ -26,7 +26,7 @@ const register = async (req, res) => {
       token: jwtToken,
     });
   } catch (error) {
-    // console.error("Registration error:", error);
+    console.error("Registration error:", error);
     res.status(500).json({ message: "Terjadi kesalahan pada server saat registrasi" });
   }
 };
