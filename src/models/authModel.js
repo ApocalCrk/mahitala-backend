@@ -21,6 +21,8 @@ const AuthModel = {
   async createUser(data) {
     const { username, token } = data;
     const hashedToken = hashToken(token); 
+    console.log('Username:', username);
+    console.log('Hashed Token:', hashedToken);
     const results = await queryPromise('INSERT INTO users (username, token) VALUES (?, ?)', [username, hashedToken]);
     return results;
   },
