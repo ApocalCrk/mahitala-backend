@@ -41,7 +41,9 @@ const login = async (req, res) => {
 
     const user = result[0];
 
-    if (AuthModel.isTokenValid(token, user.token)) {
+    const isValidToken = await AuthModel.isTokenValid(token, user.token);
+
+    if (isValidToken) {
       const payload = { user_id: user.user_id, username };
       const jwtToken = jwt.sign(payload, JWT_SECRET);
       res.json({
