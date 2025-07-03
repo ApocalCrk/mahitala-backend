@@ -15,8 +15,7 @@ const register = async (req, res) => {
       return res.status(400).json({ message: "Username telah terdaftar" });
     }
 
-    const hashedToken = await AuthModel.hashToken(token);
-    const dbResult = await AuthModel.createUser({ username, token: hashedToken });
+    const dbResult = await AuthModel.createUser({ username, token });
 
     const user = { user_id: dbResult.insertId, username };
     const jwtToken = jwt.sign(user, JWT_SECRET);
