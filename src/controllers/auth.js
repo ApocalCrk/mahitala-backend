@@ -9,6 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const register = async (req, res) => {
   try {
     const { username, token } = req.body;
+    console.log(req.body);
 
     const existingUser = await AuthModel.isUsernameTaken(username);
     if (existingUser.length > 0) {
