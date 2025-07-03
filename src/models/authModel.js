@@ -20,9 +20,8 @@ const AuthModel = {
 
   async createUser(data) {
     const { username, token } = data;
-    hashToken(token).then(hashed => {
-      return queryPromise('INSERT INTO users (username, token) VALUES (?, ?)', [username, hashed]);
-    });
+    const results = await queryPromise('INSERT INTO users (username, token) VALUES (?, ?)', [username, token]);
+    return results;
   },
 
   async getUserByUsername(username) {
