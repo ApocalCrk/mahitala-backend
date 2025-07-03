@@ -8,6 +8,7 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const { decode } = require("html-entities");
+const UserModel = require("../models/userModel");
 
 const issuedCachePath = path.join(__dirname, "../cache/bmkg-issued.json");
 
@@ -129,7 +130,7 @@ const generateData = async ({ fcmToken, title, body }) => {
 };
 
 const processWeatherNotifications = async (weatherProcessingFunction) => {
-  const users = await userModel.getAllUsers();
+  const users = await UserModel.getAllUsers();
   if (!users.length) {
     console.log(
       "No users with FCM token found, skipping weather notification."
