@@ -76,6 +76,7 @@ const ForumModel = {
   async getForumTerbaru() {
     const sql = `SELECT * FROM forum_diskusi 
                  JOIN kategori ON forum_diskusi.id_kategori = kategori.id_kategori 
+                 JOIN users ON forum_diskusi.user_id = users.user_id
                  ORDER BY tgl_dibuat DESC`;
     return await queryPromise(sql);
   },
