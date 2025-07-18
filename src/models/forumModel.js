@@ -28,10 +28,11 @@ const unlinkImagePromise = (filePath) => {
   });
 };
 
-
 const ForumModel = {
   async checkUserByID(user_id) {
-    return await queryPromise("SELECT * FROM users WHERE user_id = ?", [user_id]);
+    return await queryPromise("SELECT * FROM users WHERE user_id = ?", [
+      user_id,
+    ]);
   },
 
   async checkUser(username, user_id) {
@@ -62,7 +63,8 @@ const ForumModel = {
   },
 
   async updateViewCount(idDiskusi) {
-    const sql = "UPDATE forum_diskusi SET jumlah_pembaca = jumlah_pembaca + 1 WHERE id_diskusi = ?";
+    const sql =
+      "UPDATE forum_diskusi SET jumlah_pembaca = jumlah_pembaca + 1 WHERE id_diskusi = ?";
     return await queryPromise(sql, [idDiskusi]);
   },
 
@@ -97,7 +99,8 @@ const ForumModel = {
   },
 
   async searchForumByKeyword(keyword) {
-    const sql = "SELECT * FROM forum_diskusi JOIN users ON forum_diskusi.user_id = users.user_id WHERE judul LIKE ?";
+    const sql =
+      "SELECT * FROM forum_diskusi JOIN users ON forum_diskusi.user_id = users.user_id WHERE judul LIKE ?";
     return await queryPromise(sql, [`%${keyword}%`]);
   },
 
@@ -110,7 +113,8 @@ const ForumModel = {
   },
 
   async createForum(user_id, gambar, judul, isi, id_kategori) {
-    const sql = "INSERT INTO forum_diskusi (user_id, gambar, judul, isi, id_kategori) VALUES (?, ?, ?, ?, ?)";
+    const sql =
+      "INSERT INTO forum_diskusi (user_id, gambar, judul, isi, id_kategori) VALUES (?, ?, ?, ?, ?)";
     return await queryPromise(sql, [user_id, gambar, judul, isi, id_kategori]);
   },
 
@@ -129,12 +133,14 @@ const ForumModel = {
   },
 
   async createReply(id_interact, id_diskusi, user_id, isi) {
-    const sql = "INSERT INTO user_in_diskusi (id_interact, id_diskusi, user_id, isi) VALUES (?, ?, ?, ?)";
+    const sql =
+      "INSERT INTO user_in_diskusi (id_interact, id_diskusi, user_id, isi) VALUES (?, ?, ?, ?)";
     return await queryPromise(sql, [id_interact, id_diskusi, user_id, isi]);
   },
 
   async createSubReply(id_reply, id_interact, user_id, isi) {
-    const sql = "INSERT INTO user_reply_diskusi (id_reply, id_interact, user_id, isi) VALUES (?, ?, ?, ?)";
+    const sql =
+      "INSERT INTO user_reply_diskusi (id_reply, id_interact, user_id, isi) VALUES (?, ?, ?, ?)";
     return await queryPromise(sql, [id_reply, id_interact, user_id, isi]);
   },
 
@@ -144,7 +150,8 @@ const ForumModel = {
   },
 
   async updateFirstReplyToDeleted(id_interact) {
-    const sql = "UPDATE user_in_diskusi SET isi = '[deleted]' WHERE id_interact = ?";
+    const sql =
+      "UPDATE user_in_diskusi SET isi = '[deleted]' WHERE id_interact = ?";
     return await queryPromise(sql, [id_interact]);
   },
 
@@ -157,64 +164,65 @@ const ForumModel = {
     const sql = "DELETE FROM user_reply_diskusi WHERE id_reply = ?";
     return await queryPromise(sql, [id_reply]);
   },
-  
+
   async checkKomoditasHargaPasar() {
+    console.time("checkKomoditasHargaPasar_total"); 
+
     const API_URL = process.env.API_URL_KOMODITAS_HARGA_PASAR;
     const CACHE_FILE = path.join(__dirname, "../cache/komoditas_cache.json");
-    const TTL = 60 * 60 * 1000; // 1 jam
-    const API_TIMEOUT = 10 * 3000; // 10 seconds
-
-    const readCache = async () => {
-      try {
-        const raw = await fs.readFile(CACHE_FILE, "utf-8");
-        return JSON.parse(raw).data;
-      } catch (err) {
-        return null;
-      }
-    };
+    const TTL = 60 * 60 * 1000;
 
     try {
-        const stats = await fs.stat(CACHE_FILE);
-        if (Date.now() - stats.mtimeMs < TTL) {
-            console.log("Serving komoditas from file cache (within TTL)");
-            const raw = await fs.readFile(CACHE_FILE, "utf-8");
-            return JSON.parse(raw).data;
-        }
+      console.time("1. Cache Stat Check");
+      const stats = await fs.stat(CACHE_FILE);
+      console.timeEnd("1. Cache Stat Check");
+
+      if (Date.now() - stats.mtimeMs < TTL) {
+        console.log("Serving komoditas from file cache");
+        console.time("2. Cache Read and Parse");
+        const raw = await fs.readFile(CACHE_FILE, "utf-8");
+        const data = JSON.parse(raw).data;
+        console.timeEnd("2. Cache Read and Parse");
+        console.timeEnd("checkKomoditasHargaPasar_total");
+        return data;
+      }
     } catch (err) {
-        // Cache tidak ada atau error, lanjutkan ke API call
+      // Cache not found, continue
     }
 
     try {
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('API request timeout')), API_TIMEOUT);
-        });
+      console.time("3. API Fetch (axios.get)");
+      const response = await axios.get(API_URL);
+      console.timeEnd("3. API Fetch (axios.get)");
 
-        const response = await Promise.race([
-          axios.get(API_URL),
-          timeoutPromise
-        ]);
+      console.time("4. Data Processing (map)");
+      const komoditas = response.data.data.map((item) => ({
+        id: item.id,
+        nama: item.name,
+        satuan: item.satuan,
+        hari_ini: item.today,
+        kemarin: item.yesterday,
+        tanggal_kemarin: item.yesterday_date,
+        gap: item.gap,
+        gap_persen: item.gap_percentage,
+        gap_change: item.gap_change,
+        gap_color: item.gap_color,
+        gambar: item.background,
+      }));
+      console.timeEnd("4. Data Processing (map)");
 
-        const komoditas = response.data.data.map((item) => ({
-            id: item.id, nama: item.name, satuan: item.satuan,
-            hari_ini: item.today, kemarin: item.yesterday, tanggal_kemarin: item.yesterday_date,
-            gap: item.gap, gap_persen: item.gap_percentage, gap_change: item.gap_change,
-            gap_color: item.gap_color, gambar: item.background,
-        }));
+      const cacheData = { timestamp: Date.now(), data: komoditas };
 
-        const cacheData = { timestamp: Date.now(), data: komoditas };
-        await fs.writeFile(CACHE_FILE, JSON.stringify(cacheData), "utf-8");
-        console.log("API data fetched and cache updated");
-        return komoditas;
+      console.time("5. Cache Write (fs.writeFile)");
+      await fs.writeFile(CACHE_FILE, JSON.stringify(cacheData), "utf-8");
+      console.timeEnd("5. Cache Write (fs.writeFile)");
+
+      console.timeEnd("checkKomoditasHargaPasar_total");
+      return komoditas;
     } catch (error) {
-        console.error("Error fetching komoditas harga pasar:", error.message);
-        
-        const cacheData = await readCache();
-        if (cacheData) {
-            console.log("Using expired cache data due to API failure/timeout");
-            return cacheData;
-        }
-        
-        throw error;
+      console.error("Error fetching komoditas harga pasar:", error);
+      console.timeEnd("checkKomoditasHargaPasar_total"); 
+      throw error;
     }
   },
 };
