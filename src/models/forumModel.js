@@ -175,9 +175,7 @@ const ForumModel = {
     }
 
     try {
-        const response = await axios.get(API_URL, 
-            { headers: { 'User-Agent': 'Mozilla/5.0, AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3', 'Accept': 'application/json', 'Content-Type': 'application/json', 'Cache-Control': 'no-cache', 'Pragma': 'no-cache', 'Expires': '0', 'Connection': 'keep-alive', 'Accept-Encoding': 'gzip, deflate', 'Accept-Language': 'en-US,en;q=0.8', 'DNT': '1' } }
-        );
+        const response = await axios.get(API_URL);
         const komoditas = response.data.data.map((item) => ({
             id: item.id, nama: item.name, satuan: item.satuan,
             hari_ini: item.today, kemarin: item.yesterday, tanggal_kemarin: item.yesterday_date,
