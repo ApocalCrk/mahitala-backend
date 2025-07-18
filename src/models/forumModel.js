@@ -162,7 +162,7 @@ const ForumModel = {
     const API_URL = process.env.API_URL_KOMODITAS_HARGA_PASAR;
     const CACHE_FILE = path.join(__dirname, "../cache/komoditas_cache.json");
     const TTL = 60 * 60 * 1000; // 1 jam
-    const API_TIMEOUT = 10 * 1000; // 10 seconds
+    const API_TIMEOUT = 10 * 3000; // 10 seconds
 
     const readCache = async () => {
       try {
