@@ -14,6 +14,7 @@ const verifyToken = require("../../middleware/verifyToken");
 // --- Rute Forum ---
 
 // GET
+router.get("/forum/harga-komoditas", checkHargaKomoditasProdusen);
 router.get("/forum/diskusi-terakhir", verifyToken, getForumTerakhir);
 router.get("/forum/all-diskusi", getAllForum);
 router.get("/forum/diskusi-terbaru", getForumTerbaru);
@@ -21,7 +22,6 @@ router.get("/forum/top-diskusi", getForumTopDiskusi);
 router.get("/forum/diskusi-kategori/:id", getForumByKategori);
 router.get("/forum/diskusi-search/:search", getForumByKeyword);
 router.get("/forum/diskusi/:id", getForumById);
-router.get("/forum/harga-komoditas", checkHargaKomoditasProdusen);
 
 // POST
 router.post("/forum/diskusi", verifyToken, upload.single("gambar"), createForum);

@@ -164,69 +164,31 @@ const ForumModel = {
     const TTL = 60 * 60 * 1000; // 1 jam
 
     try {
-        // fs.promises.stat is fine here because it's fast and we need to wait for it.
-        const stats = await fs.promises.stat(CACHE_FILE);
-        const isCacheValid = (Date.now() - stats.mtimeMs) < CACHE_TTL_MS;
-
-        if (isCacheValid) {
-            console.log("Serving komoditas from valid file cache.");
-            const rawData = await fs.promises.readFile(CACHE_FILE, "utf-8");
-            return JSON.parse(rawData).data;
+        const stats = await fs.stat(CACHE_FILE);
+        if (Date.now() - stats.mtimeMs < TTL) {
+            console.log("Serving komoditas from file cache");
+            const raw = await fs.readFile(CACHE_FILE, "utf-8");
+            return JSON.parse(raw).data;
         }
     } catch (err) {
-        // This is expected if the file doesn't exist.
-        if (err.code === 'ENOENT') {
-            console.log("Cache file not found. Fetching from API.");
-        } else {
-            console.error("Error checking cache file stats:", err);
-        }
+        // Cache tidak ada atau error, lanjutkan ke API call
     }
 
-    // --- 2. If cache is invalid or missing, fetch from API ---
     try {
-        console.log(`Fetching fresh data from: ${API_URL}`);
-        const response = await axios.get(API_URL, { timeout: 15000 }); // 15-second timeout
-
-        // Map the data to the desired format
+        const response = await axios.get(API_URL);
         const komoditas = response.data.data.map((item) => ({
-            id: item.id,
-            nama: item.name,
-            satuan: item.satuan,
-            hari_ini: item.today,
-            kemarin: item.yesterday,
-            tanggal_kemarin: item.yesterday_date,
-            gap: item.gap,
-            gap_persen: item.gap_percentage,
-            gap_change: item.gap_change,
-            gap_color: item.gap_color,
-            gambar: item.background,
+            id: item.id, nama: item.name, satuan: item.satuan,
+            hari_ini: item.today, kemarin: item.yesterday, tanggal_kemarin: item.yesterday_date,
+            gap: item.gap, gap_persen: item.gap_percentage, gap_change: item.gap_change,
+            gap_color: item.gap_color, gambar: item.background,
         }));
 
-        // --- 3. THE FIX: Write to cache in the background (NON-BLOCKING) ---
-        const cacheData = {
-            timestamp: Date.now(),
-            data: komoditas
-        };
-        
-        // We use the callback version of writeFile. This tells Node.js to start writing
-        // but NOT to wait for it to finish. The function continues immediately.
-        fs.writeFile(CACHE_FILE, JSON.stringify(cacheData), "utf-8", (err) => {
-            if (err) {
-                // If writing fails, we just log it. The user has already received their data.
-                console.error("Error writing to cache file in background:", err);
-            } else {
-                console.log("Cache file has been updated in the background.");
-            }
-        });
-
-        // --- 4. Return the fresh data to the user IMMEDIATELY ---
-        console.log("Returning fresh data to the user while cache writes in background.");
+        const cacheData = { timestamp: Date.now(), data: komoditas };
+        await fs.writeFile(CACHE_FILE, JSON.stringify(cacheData), "utf-8");
         return komoditas;
-
     } catch (error) {
-        console.error("Fatal error fetching komoditas harga pasar from API:", error.message);
-        // If the API call fails, we must throw an error so the calling function knows about it.
-        throw error;
+        console.error("Error fetching komoditas harga pasar:", error);
+        throw error; // Lemparkan error agar ditangkap oleh controller
     }
   },
 };
