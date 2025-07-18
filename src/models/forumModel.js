@@ -162,11 +162,21 @@ const ForumModel = {
     const API_URL = process.env.API_URL_KOMODITAS_HARGA_PASAR;
     const CACHE_FILE = path.join(__dirname, "../cache/komoditas_cache.json");
     const TTL = 60 * 60 * 1000; // 1 jam
+    const API_TIMEOUT = 10 * 1000; // 10 seconds
+
+    const readCache = async () => {
+      try {
+        const raw = await fs.readFile(CACHE_FILE, "utf-8");
+        return JSON.parse(raw).data;
+      } catch (err) {
+        return null;
+      }
+    };
 
     try {
         const stats = await fs.stat(CACHE_FILE);
         if (Date.now() - stats.mtimeMs < TTL) {
-            console.log("Serving komoditas from file cache");
+            console.log("Serving komoditas from file cache (within TTL)");
             const raw = await fs.readFile(CACHE_FILE, "utf-8");
             return JSON.parse(raw).data;
         }
@@ -175,7 +185,15 @@ const ForumModel = {
     }
 
     try {
-        const response = await axios.get(API_URL);
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('API request timeout')), API_TIMEOUT);
+        });
+
+        const response = await Promise.race([
+          axios.get(API_URL),
+          timeoutPromise
+        ]);
+
         const komoditas = response.data.data.map((item) => ({
             id: item.id, nama: item.name, satuan: item.satuan,
             hari_ini: item.today, kemarin: item.yesterday, tanggal_kemarin: item.yesterday_date,
@@ -185,10 +203,18 @@ const ForumModel = {
 
         const cacheData = { timestamp: Date.now(), data: komoditas };
         await fs.writeFile(CACHE_FILE, JSON.stringify(cacheData), "utf-8");
+        console.log("API data fetched and cache updated");
         return komoditas;
     } catch (error) {
-        console.error("Error fetching komoditas harga pasar:", error);
-        throw error; // Lemparkan error agar ditangkap oleh controller
+        console.error("Error fetching komoditas harga pasar:", error.message);
+        
+        const cacheData = await readCache();
+        if (cacheData) {
+            console.log("Using expired cache data due to API failure/timeout");
+            return cacheData;
+        }
+        
+        throw error;
     }
   },
 };
