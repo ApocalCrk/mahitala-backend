@@ -239,7 +239,7 @@ const deleteSecondReply = async (req, res) => {
   }
 };
 
-const checkHargaKomoditasProdusen = async (res) => {
+const checkHargaKomoditasProdusen = async (req, res) => {
     try {
         const result = await ForumModel.checkKomoditasHargaPasar();
         res.json(result);
